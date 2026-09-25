@@ -11,12 +11,11 @@ export interface SpecialStats {
 }
 
 export type SkillName =
-  | 'smallGuns' | 'bigGuns' | 'energyWeapons' | 'meleeWeapons' | 'unarmed'
-  | 'medicine' | 'herbalism' | 'science' | 'repair' | 'engineering'
-  | 'lockpick' | 'hacking' | 'stealth' | 'survival' | 'hunting' | 'scouting'
-  | 'explosives' | 'traps' | 'speech' | 'barter' | 'music' | 'intimidation'
-  | 'streetwise' | 'animalHandling' | 'firstAid' | 'athletics' | 'acrobatics'
-  | 'perception';
+  | 'athletics' | 'stealth' | 'sleightOfHand' | 'unarmed' | 'melee'
+  | 'firearms' | 'explosives' | 'survival' | 'search' | 'navigation' | 'insight'
+  | 'medicine' | 'mechanics' | 'electronics' | 'science' | 'crafting'
+  | 'persuasion' | 'barter' | 'deception' | 'leadership'
+  | 'animalHandling' | 'performance';
 
 export interface SkillDefinition {
   id: SkillName;
