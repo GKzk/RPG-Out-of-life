@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { resolveCompanionDamage, stabilizeCompanion, advanceCompanionBleedout, resolveStabilizedMedicalProcedure, canAttemptStabilizedProcedure } from '../src/utils/companionSystem';
 import {
   getAttributeMod,
   getPointBuyCost,
@@ -70,3 +71,25 @@ assert.equal(nat1.critical, false);
 assert.equal(nat1.misfire, true);
 
 console.log('Character System v0.4.5.7 math tests: PASS');
+
+
+const healthy = resolveCompanionDamage(10, 20, 10);
+assert.equal(healthy.state, 'HEALTHY');
+
+const downed = resolveCompanionDamage(10, 20, 11);
+assert.equal(downed.state, 'DOWNED');
+assert.equal(stabilizeCompanion(downed, false).state, 'DOWNED');
+const stabilized = stabilizeCompanion(downed, true);
+assert.equal(stabilized.state, 'STABILIZED');
+assert.equal(stabilized.downedRounds, 0);
+assert.equal(resolveStabilizedMedicalProcedure(stabilized, 11, true).state, 'STABILIZED');
+assert.equal(resolveStabilizedMedicalProcedure(stabilized, 12, true).state, 'HEALTHY');
+
+let bleeding = downed;
+bleeding = advanceCompanionBleedout(bleeding);
+bleeding = advanceCompanionBleedout(bleeding);
+bleeding = advanceCompanionBleedout(bleeding);
+assert.equal(bleeding.state, 'DEAD');
+
+assert.equal(resolveCompanionDamage(0, 20, 20).state, 'DEAD');
+assert.equal(canAttemptStabilizedProcedure(stabilized), true);
