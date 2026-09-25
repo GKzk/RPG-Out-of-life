@@ -3,6 +3,9 @@ import {
   getAttributeMod,
   getPointBuyCost,
   getMaxAP,
+  calculateMeleeDamage,
+  calculateCritMeleeDamage,
+  applyRareAmmoLuck,
   getCompanionSlots,
   getFoodPerDay,
   getWaterPerDay,
@@ -20,6 +23,11 @@ import {
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
 assert.deepEqual([1,2,3,4,5,6,7,8,9,10].map(getPointBuyCost), [0,1,2,3,4,5,7,10,14,19]);
+assert.equal(calculateMeleeDamage(4, 5), 4);
+assert.equal(calculateMeleeDamage(1, 1), 1);
+assert.equal(calculateCritMeleeDamage(6, 4, 5), 10);
+assert.equal(applyRareAmmoLuck(0.25), 0.3);
+assert.equal(applyRareAmmoLuck(0.9), 1);
 assert.deepEqual([1,2,3,4,5,6,7,8,9,10].map(getMaxAP), [7,8,8,9,9,10,10,11,11,12]);
 assert.deepEqual([1,4,5,7,8,10].map(getCompanionSlots), [0,0,1,1,2,2]);
 
