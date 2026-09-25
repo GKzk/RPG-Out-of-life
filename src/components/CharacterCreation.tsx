@@ -39,7 +39,7 @@ export const CharacterCreation: React.FC = () => {
   const [special, setSpecial] = useState<SpecialStats>({
     STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5,
   });
-  const [taggedSkills, setTaggedSkills] = useState<SkillName[]>(['survival', 'scouting', 'lockpick']);
+  const [taggedSkills, setTaggedSkills] = useState<SkillName[]>(['survival', 'navigation', 'sleightOfHand']);
   const [startingFeat, setStartingFeat] = useState('hard_life');
 
   const background = BACKGROUND_DEFINITIONS.find((item) => item.id === backgroundId) ?? BACKGROUND_DEFINITIONS[0];
