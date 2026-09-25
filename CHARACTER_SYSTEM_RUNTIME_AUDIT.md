@@ -55,7 +55,21 @@ Added tests for:
 - canonical AP despite severe survival values;
 - separation of legacy armor defense/DT from ArmorAC.
 
-## Remaining blockers / discrepancies
+## Additional `src/` audit — 25 September 2026
+
+### Combat UI preview
+The Combat Arena previously used the legacy percentage-based `calculateHitChance()` and displayed head-shot accuracy/AP modifiers that were no longer used by the D20 runtime. The preview now mirrors the actual D20 resolver: natural 1 misses, natural 20 hits, and normal hits use the same PER modifier + current skill bonus + target AC structure. Aimed body-part selection is currently descriptive only.
+
+### Character Sheet critical display
+The sheet previously displayed the legacy `LCK * 1.5` percentage as a generic critical chance. That is not the canonical LCK model. The sheet now displays the canonical threat bracket (20 / 19–20 / 18–20 / 17–20).
+
+### Legacy feat accuracy/damage percentages
+Feat definitions still contain legacy percentage fields such as ranged accuracy and melee/ranged damage bonuses. They are not silently translated into D20 modifiers because the locked Character System does not define those conversions. They remain design data until the feat system is formally migrated.
+
+### Survival / effective SPECIAL
+Survival effects still modify effective SPECIAL. This was not changed because those effects are a separate survival-system layer and removing them would alter existing gameplay balance. AP itself no longer receives an additional hidden survival penalty.
+
+### Remaining blockers / discrepancies
 
 ### A. Player skill-to-attack conversion is not formally locked
 Current player attack still feeds the existing skill value directly as a D20 attack bonus.
@@ -88,3 +102,6 @@ The following remain intentionally for compatibility and should not be used as c
 **Burst gameplay integration:** pending weapon design  
 **Companion runtime integration:** pending  
 **Full migration:** NOT COMPLETE
+
+## Verification limitation
+GitHub source inspection was completed. A local `npm test` / TypeScript build could not be executed because this environment has no network/DNS access to clone/install the repository. No test run is claimed.
