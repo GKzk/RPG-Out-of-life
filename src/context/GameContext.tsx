@@ -16,9 +16,13 @@ import {
   calculateEffectiveSpecial,
   calculateDerivedStats,
   calculateSkillValue,
-  calculateHitChance,
   rollD20,
 } from '../utils/statCalculations';
+import {
+  getAttributeMod,
+  calculateMeleeDamage,
+  calculateCritMeleeDamage,
+} from '../utils/characterSystem';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
 import { ENEMY_DATABASE } from '../data/enemies';
@@ -518,92 +522,107 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const weaponData = weapon?.weaponData || {
       damageMin: 3,
       damageMax: 6,
+      damageDiceCount: 1,
+      damageDiceSides: 4,
+      damageFlat: 2,
       apCost: 3,
       range: 'melee' as const,
       skillReq: 'unarmed' as SkillName,
       critMultiplier: 1.5,
     };
 
-    let apCost = weaponData.apCost;
-    if (aimedPart === 'head') apCost += 1; // Aimed VATS headshot costs extra AP
+    const diceCount = weaponData.damageDiceCount ?? 1;
+    const diceSides = weaponData.damageDiceSides ?? Math.max(1, weaponData.damageMax - weaponData.damageMin + 1);
+    const weaponFlat =
+      weaponData.damageFlat ??
+      (weaponData.damageMin - 1);
 
+    const apCost = weaponData.apCost;
     if (character.currentAp < apCost) {
       addLogMessage(`Недостаточно Очков Действий (AP)! Требуется ${apCost} AP.`, 'hazard');
       return;
     }
 
-    // Deduct AP
     const remainingAp = character.currentAp - apCost;
-
-    // Calculate skill value
     const skillVal = calculateSkillValue(weaponData.skillReq, character, effectiveSpecial);
-    const hasHeavyStriker = character.feats.includes('heavy_striker');
-    const hasSniperEye = character.feats.includes('sniper_eye');
 
-    let hitChance = calculateHitChance(
-      skillVal,
-      effectiveSpecial.PER,
-      combatState.enemy.evasion + (combatState.enemyDefensiveStance ? 4 : 0),
-      combatState.distance,
-      weaponData.range,
-      hasHeavyStriker,
-      hasSniperEye
-    );
+    // Canonical attack structure: D20 + attribute modifier + skill bonus + weapon accuracy.
+    // Current catalog has no explicit weapon accuracy, therefore the adapter uses 0.
+    const attackMod = getAttributeMod(effectiveSpecial.PER);
+    const skillBonus = skillVal;
+    const weaponAccuracy = 0;
+    const d20 = rollD20();
+    const attackTotal = d20 + attackMod + skillBonus + weaponAccuracy;
 
-    if (aimedPart === 'head') hitChance -= 20; // Headshot penalty
+    const targetAC = combatState.enemy.evasion + (combatState.enemyDefensiveStance ? 4 : 0);
+    const isNatural20 = d20 === 20;
+    const isNatural1 = d20 === 1;
+    const isHit = !isNatural1 && (isNatural20 || attackTotal >= targetAC);
 
-    const rollHit = Math.floor(Math.random() * 100) + 1;
-    const isHit = rollHit <= hitChance;
-
-    // Critical Hit calculation
-    let isCrit = false;
-    if (isHit) {
-      const critRoll = Math.floor(Math.random() * 100) + 1;
-      let critThreshold = derivedStats.critChance;
-      if (aimedPart === 'head') critThreshold += 25; // Aimed headshot gives +25% crit chance
-      isCrit = critRoll <= critThreshold;
-    }
+    // LCK threat brackets: 20 / 19-20 / 18-20 / 17-20.
+    const threatMin =
+      effectiveSpecial.LCK <= 4 ? 20 :
+      effectiveSpecial.LCK <= 7 ? 19 :
+      effectiveSpecial.LCK <= 9 ? 18 : 17;
+    const isCrit = isHit && (isNatural20 || (d20 >= threatMin && attackTotal >= targetAC));
 
     addLogMessage(
-      `Атака (${aimedPart.toUpperCase()}): Шанс ${hitChance}% (Бросок d100: ${rollHit})...`,
+      `Атака (${aimedPart.toUpperCase()}): d20=${d20}, итог=${attackTotal}, AC=${targetAC}.`,
       isHit ? 'hit' : 'miss'
     );
 
-    if (isHit) {
-      // Calculate raw damage
-      let rawDamage =
-        Math.floor(Math.random() * (weaponData.damageMax - weaponData.damageMin + 1)) + weaponData.damageMin;
-
-      // Add Strength bonus for Melee/Unarmed
-      if (weaponData.range === 'melee') {
-        rawDamage += Math.floor(effectiveSpecial.STR * 1.5);
-      }
-
-      if (isCrit) {
-        rawDamage = Math.floor(rawDamage * weaponData.critMultiplier);
-      }
-
-      // Enemy Armor Reduction
-      const netDamage = Math.max(1, rawDamage - combatState.enemy.armor);
-      const newEnemyHp = Math.max(0, combatState.enemy.hpCurrent - netDamage);
-
+    if (!isHit) {
       addLogMessage(
-        `${isCrit ? '[КРИТИЧЕСКИЙ УДАР!] ' : ''}Попадание по ${combatState.enemy.nameRu}! Урон: ${rawDamage} [-Броня ${combatState.enemy.armor} = ${netDamage} чистыми HP].`,
-        isCrit ? 'crit' : 'damage'
+        isNatural1
+          ? `Критический провал! Natural 1 — атака промахнулась и требует стандартной проверки осечки.`
+          : `Промах! Вы промазали по ${combatState.enemy.nameRu}.`,
+        'miss'
       );
-
-      const updatedEnemy = { ...combatState.enemy, hpCurrent: newEnemyHp };
-
-      setCombatState((prev) => ({ ...prev, enemy: updatedEnemy }));
       setCharacter({ ...character, currentAp: remainingAp });
+      return;
+    }
 
-      // Check enemy death
-      if (newEnemyHp <= 0) {
-        setTimeout(() => endCombat(true), 600);
-      }
-    } else {
-      addLogMessage(`Промах! Вы промазали по ${combatState.enemy.nameRu}.`, 'miss');
-      setCharacter({ ...character, currentAp: remainingAp });
+    let rollWeaponDice = 0;
+    for (let i = 0; i < diceCount; i++) {
+      rollWeaponDice += Math.floor(Math.random() * diceSides) + 1;
+    }
+
+    // STR modifies melee damage only. Ranged attacks use no STR damage modifier.
+    const attributeMod = weaponData.range === 'melee'
+      ? getAttributeMod(effectiveSpecial.STR)
+      : 0;
+
+    const maxWeaponDice = diceCount * diceSides;
+    let rawDamage = rollWeaponDice + weaponFlat + attributeMod;
+
+    if (isCrit) {
+      rawDamage = maxWeaponDice + rollWeaponDice + weaponFlat + attributeMod;
+    }
+
+    rawDamage = Math.max(1, rawDamage);
+
+    // Enemy armor remains a legacy numeric field until enemy DT/DR is explicitly designed.
+    const damageThreshold = Math.max(0, combatState.enemy.armor);
+    const damageResistancePercent = 0;
+    const postDT = Math.max(0, rawDamage - damageThreshold);
+    const netDamage = Math.max(
+      1,
+      Math.floor(postDT * (1 - damageResistancePercent / 100))
+    );
+
+    const newEnemyHp = Math.max(0, combatState.enemy.hpCurrent - netDamage);
+
+    addLogMessage(
+      `${isCrit ? '[КРИТИЧЕСКИЙ УДАР!] ' : ''}Попадание по ${combatState.enemy.nameRu}! Урон: ${rawDamage} [DT ${damageThreshold} = ${netDamage} чистыми HP].`,
+      isCrit ? 'crit' : 'damage'
+    );
+
+    const updatedEnemy = { ...combatState.enemy, hpCurrent: newEnemyHp };
+    setCombatState((prev) => ({ ...prev, enemy: updatedEnemy }));
+    setCharacter({ ...character, currentAp: remainingAp });
+
+    if (newEnemyHp <= 0) {
+      setTimeout(() => endCombat(true), 600);
     }
   };
 
@@ -656,26 +675,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (enemyAp >= 3) {
       // Enemy Attacks
-      const enemyHitChance = Math.max(10, 60 - derivedStats.evasion * 2);
-      const roll = Math.floor(Math.random() * 100) + 1;
-      const isHit = roll <= enemyHitChance;
+      const enemyD20 = rollD20();
+      const enemyAttackMod = 0;
+      const enemySkillBonus = Math.max(0, Math.floor((currentEnemy.damageMax + currentEnemy.damageMin) / 4));
+      const enemyAttackTotal = enemyD20 + enemyAttackMod + enemySkillBonus;
+      const isHit = enemyD20 === 20 || (enemyD20 !== 1 && enemyAttackTotal >= derivedStats.evasion + (combatState.playerDefensiveStance ? 4 : 0));
 
       if (isHit) {
-        let dmg =
-          Math.floor(Math.random() * (currentEnemy.damageMax - currentEnemy.damageMin + 1)) + currentEnemy.damageMin;
+        const enemyRange = currentEnemy.damageMax - currentEnemy.damageMin + 1;
+        const dmg = currentEnemy.damageMin + Math.floor(Math.random() * enemyRange);
 
-        // Player armor reduction
-        let armorDef = 0;
+        let damageThreshold = 0;
+        let damageResistancePercent = 0;
         if (character.equippedArmorId) {
           const armorItem = ITEM_DATABASE.find((i) => i.id === character.equippedArmorId);
-          if (armorItem?.armorData) armorDef = armorItem.armorData.defense;
+          if (armorItem?.armorData) {
+            damageThreshold = armorItem.armorData.damageThreshold ?? armorItem.armorData.defense;
+            damageResistancePercent = armorItem.armorData.damageResistancePercent ?? 0;
+          }
         }
 
-        const netDmg = Math.max(1, dmg - armorDef);
+        const postDT = Math.max(0, dmg - damageThreshold);
+        const netDmg = Math.max(1, Math.floor(postDT * (1 - damageResistancePercent / 100)));
         const newPlayerHp = Math.max(0, character.currentHp - netDmg);
 
         addLogMessage(
-          `Враг ${currentEnemy.nameRu} наносит вам урон: ${dmg} [-Броня ${armorDef} = ${netDmg} HP]!`,
+          `Враг ${currentEnemy.nameRu} наносит вам урон: ${dmg} [DT ${damageThreshold} = ${netDmg} HP]!`,
           'damage'
         );
 
@@ -687,7 +712,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
       } else {
-        addLogMessage(`Враг ${currentEnemy.nameRu} промахивается!`, 'miss');
+        addLogMessage(`Враг ${currentEnemy.nameRu} промахивается! (d20=${enemyD20}, итог=${enemyAttackTotal})`, 'miss');
       }
     }
 
