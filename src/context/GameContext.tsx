@@ -22,6 +22,7 @@ import {
   getAttributeMod,
   calculateMeleeDamage,
   calculateCritMeleeDamage,
+  applyBurstDefense,
 } from '../utils/characterSystem';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
@@ -602,12 +603,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     rawDamage = Math.max(1, rawDamage);
 
     // Enemy armor remains a legacy numeric field until enemy DT/DR is explicitly designed.
-    const damageThreshold = Math.max(0, combatState.enemy.armor);
-    const damageResistancePercent = 0;
-    const postDT = Math.max(0, rawDamage - damageThreshold);
-    const netDamage = Math.max(
-      1,
-      Math.floor(postDT * (1 - damageResistancePercent / 100))
+    const damageThreshold = Math.max(
+      0,
+      combatState.enemy.damageThreshold ?? combatState.enemy.armor
+    );
+    const damageResistancePercent = Math.max(
+      0,
+      combatState.enemy.damageResistancePercent ?? 0
+    );
+    const netDamage = applyBurstDefense(
+      rawDamage,
+      damageThreshold,
+      damageResistancePercent
     );
 
     const newEnemyHp = Math.max(0, combatState.enemy.hpCurrent - netDamage);
@@ -676,9 +683,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (enemyAp >= 3) {
       // Enemy Attacks
       const enemyD20 = rollD20();
-      const enemyAttackMod = 0;
-      const enemySkillBonus = Math.max(0, Math.floor((currentEnemy.damageMax + currentEnemy.damageMin) / 4));
-      const enemyAttackTotal = enemyD20 + enemyAttackMod + enemySkillBonus;
+      const enemyAttackMod = currentEnemy.attackBonus ?? 0;
+      const enemyAttackTotal = enemyD20 + enemyAttackMod;
       const isHit = enemyD20 === 20 || (enemyD20 !== 1 && enemyAttackTotal >= derivedStats.evasion + (combatState.playerDefensiveStance ? 4 : 0));
 
       if (isHit) {
@@ -695,8 +701,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const postDT = Math.max(0, dmg - damageThreshold);
-        const netDmg = Math.max(1, Math.floor(postDT * (1 - damageResistancePercent / 100)));
+        const netDmg = applyBurstDefense(
+          dmg,
+          damageThreshold,
+          damageResistancePercent
+        );
         const newPlayerHp = Math.max(0, character.currentHp - netDmg);
 
         addLogMessage(
