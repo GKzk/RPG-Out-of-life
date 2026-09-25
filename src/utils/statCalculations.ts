@@ -10,6 +10,7 @@ import {
 import { SKILL_DEFINITIONS } from '../data/skills';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
+import { getMaxAP } from './characterSystem';
 
 export const MAX_SPECIAL_POINT_POOL = 28;
 
@@ -243,18 +244,17 @@ export function calculateDerivedStats(
   }
 
   // Action Points AP
-  let maxAp = 7 + Math.floor(AGI / 2) + featApBonus;
-  if (character.survival.hunger > 80) maxAp -= 2;
-  if (character.survival.thirst > 80) maxAp -= 3;
-  if (character.survival.fatigue > 70) maxAp -= 2;
-  maxAp = Math.max(3, maxAp);
+  // Canonical Character System AP baseline. Survival conditions do not alter
+  // the formula itself; any future AP penalties must be explicitly designed.
+  const maxAp = getMaxAP(AGI) + featApBonus;
 
-  // Evasion / AC
+  // Evasion / AC: 10 + floor(AGI / 2) + explicit ArmorAC.
+  // Legacy `defense` is DT and must not silently double as AC.
   let armorDefense = 0;
   if (character.equippedArmorId) {
     const armorItem = ITEM_DATABASE.find((i) => i.id === character.equippedArmorId);
     if (armorItem?.armorData) {
-      armorDefense = armorItem.armorData.defense;
+      armorDefense = armorItem.armorData.armorClassBonus ?? 0;
     }
   }
 
