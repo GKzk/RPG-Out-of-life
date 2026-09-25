@@ -16,7 +16,7 @@
 body {
   background-color: #0a0a0a;
   color: #fcd34d;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: "GOST type A", "GOST type B", "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
   background-image: radial-gradient(rgba(245, 158, 11, 0.03) 1px, transparent 0);
   background-size: 24px 24px;
 }
@@ -38,3 +38,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #f59e0b;
 }
+
+button, input { font-family: inherit; }
+h1,h2,h3 { font-family: "GOST type A", "GOST type B", "Arial Narrow", "Roboto Condensed", Arial, sans-serif; }
