@@ -85,8 +85,10 @@ export const CombatArena: React.FC = () => {
   const skillVal = calculateSkillValue(weaponData.skillReq, character, effectiveSpecial);
   const attackMod = getAttributeMod(effectiveSpecial.PER);
   const targetAC = enemy.evasion + (combatState.enemyDefensiveStance ? 4 : 0);
-  const requiredD20 = Math.max(2, targetAC - attackMod - skillVal);
-  const normalHitFaces = Math.max(0, 21 - Math.max(2, requiredD20));
+  const requiredD20 = targetAC - attackMod - skillVal;
+  // Natural 1 always misses; natural 20 always hits. Normal hits are 2..19.
+  const firstNormalHit = Math.max(2, requiredD20);
+  const normalHitFaces = Math.max(0, 20 - firstNormalHit);
   const natural20AutoHit = 1;
   const previewHitChance = Math.round(((normalHitFaces + natural20AutoHit) / 20) * 100);
 
