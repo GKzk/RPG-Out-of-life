@@ -29,6 +29,18 @@ export function isValidPointBuy(special: SpecialStats): boolean {
   return getTotalPointBuyCost(special) <= POINT_BUY_BUDGET;
 }
 
+export function calculateMeleeDamage(rollWeaponDice: number, str: number): number {
+  return Math.max(1, rollWeaponDice + (str - 5));
+}
+
+export function calculateCritMeleeDamage(maxWeaponDice: number, rollWeaponDice: number, str: number): number {
+  return Math.max(1, maxWeaponDice + rollWeaponDice + (str - 5));
+}
+
+export function applyRareAmmoLuck(baseProbability: number): number {
+  return Math.min(1, baseProbability * 1.2);
+}
+
 export function getMaxAP(agi: number): number {
   return 7 + Math.floor(agi / 2);
 }
