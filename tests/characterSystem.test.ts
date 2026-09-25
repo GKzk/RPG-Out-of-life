@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { ITEM_DATABASE } from '../src/data/items';
+import { calculateDerivedStats } from '../src/utils/statCalculations';
 import { resolveCompanionDamage, stabilizeCompanion, advanceCompanionBleedout, resolveStabilizedMedicalProcedure, canAttemptStabilizedProcedure } from '../src/utils/companionSystem';
 import {
   getAttributeMod,
@@ -110,3 +111,45 @@ assert.equal(shotgun.weaponData?.damageFlat, 13, 'shotgun flat');
 const metalArmor = ITEM_DATABASE.find((item) => item.id === 'metal_armor')!;
 assert.equal(metalArmor.armorData?.damageThreshold, 8, 'metal armor DT');
 assert.equal(metalArmor.armorData?.damageResistancePercent, 0, 'metal armor DR');
+
+const auditCharacter = {
+  name: 'Audit',
+  background: 'Test',
+  level: 1,
+  xp: 0,
+  baseSpecial: { STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5 },
+  effectiveSpecial: { STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5 },
+  taggedSkills: [],
+  skillPointsInvested: {
+    smallGuns: 0, bigGuns: 0, energyWeapons: 0, meleeWeapons: 0, unarmed: 0,
+    medicine: 0, science: 0, speech: 0, barter: 0, survival: 0, lockpick: 0,
+    stealth: 0, explosives: 0, repair: 0,
+  },
+  feats: [],
+  survival: {
+    hunger: 100,
+    thirst: 100,
+    fatigue: 100,
+    radiation: 0,
+    infection: 0,
+    addictions: {
+      stims: { level: 0, activeDuration: 0, withdrawal: false },
+      psycho: { level: 0, activeDuration: 0, withdrawal: false },
+      buffout: { level: 0, activeDuration: 0, withdrawal: false },
+      alcohol: { level: 0, activeDuration: 0, withdrawal: false },
+    },
+  },
+  currentHp: 50,
+  currentAp: 9,
+  equippedArmorId: 'metal_armor',
+};
+
+const auditDerived = calculateDerivedStats(
+  auditCharacter,
+  auditCharacter.effectiveSpecial,
+  []
+);
+assert.equal(auditDerived.maxAp, 9, 'canonical AP is not reduced by survival state');
+assert.equal(auditDerived.evasion, 12, 'legacy armor defense must not double as ArmorAC');
+
+
