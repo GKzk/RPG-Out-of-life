@@ -12,6 +12,9 @@ export const ITEM_DATABASE: Item[] = [
     weaponData: {
       damageMin: 6,
       damageMax: 12,
+      damageDiceCount: 1,
+      damageDiceSides: 7,
+      damageFlat: 5,
       apCost: 3,
       range: 'medium',
       skillReq: 'smallGuns',
@@ -29,6 +32,9 @@ export const ITEM_DATABASE: Item[] = [
     weaponData: {
       damageMin: 14,
       damageMax: 26,
+      damageDiceCount: 1,
+      damageDiceSides: 13,
+      damageFlat: 13,
       apCost: 4,
       range: 'close',
       skillReq: 'smallGuns',
@@ -46,6 +52,9 @@ export const ITEM_DATABASE: Item[] = [
     weaponData: {
       damageMin: 10,
       damageMax: 18,
+      damageDiceCount: 1,
+      damageDiceSides: 9,
+      damageFlat: 9,
       apCost: 3,
       range: 'medium',
       skillReq: 'energyWeapons',
@@ -63,6 +72,9 @@ export const ITEM_DATABASE: Item[] = [
     weaponData: {
       damageMin: 12,
       damageMax: 24,
+      damageDiceCount: 1,
+      damageDiceSides: 13,
+      damageFlat: 11,
       apCost: 5,
       range: 'melee',
       skillReq: 'meleeWeapons',
@@ -79,6 +91,9 @@ export const ITEM_DATABASE: Item[] = [
     weaponData: {
       damageMin: 5,
       damageMax: 10,
+      damageDiceCount: 1,
+      damageDiceSides: 6,
+      damageFlat: 4,
       apCost: 2,
       range: 'melee',
       skillReq: 'meleeWeapons',
@@ -95,6 +110,9 @@ export const ITEM_DATABASE: Item[] = [
     weaponData: {
       damageMin: 4,
       damageMax: 8,
+      damageDiceCount: 1,
+      damageDiceSides: 5,
+      damageFlat: 3,
       apCost: 2,
       range: 'melee',
       skillReq: 'unarmed',
@@ -112,6 +130,8 @@ export const ITEM_DATABASE: Item[] = [
     description: 'Потертая кожаная куртка с наплечниками из шин.',
     armorData: {
       defense: 3,
+      damageThreshold: 3,
+      damageResistancePercent: 0,
       radResistBonus: 5,
     },
   },
@@ -124,6 +144,8 @@ export const ITEM_DATABASE: Item[] = [
     description: 'Сваренные из кузовной стали пластины. Отлично защищают от пулемётных очередей, но сковывают движения.',
     armorData: {
       defense: 8,
+      damageThreshold: 8,
+      damageResistancePercent: 0,
       radResistBonus: 10,
       agiPenalty: 1,
     },
@@ -137,6 +159,8 @@ export const ITEM_DATABASE: Item[] = [
     description: 'Плотный синтетический комбинезон синего цвета с желтой надписью. Защищает от легкого излучения.',
     armorData: {
       defense: 2,
+      damageThreshold: 2,
+      damageResistancePercent: 0,
       radResistBonus: 15,
     },
   },
