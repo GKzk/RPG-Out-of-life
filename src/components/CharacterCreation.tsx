@@ -168,13 +168,12 @@ export const CharacterCreation: React.FC = () => {
                 2. Распределение SPECIAL
               </h2>
               <div className="text-xs bg-amber-500/10 border border-amber-500/40 px-3 py-1 rounded text-amber-300 font-bold">
-                Осталось очков: <span className={remainingPoints < 0 ? 'text-red-400' : 'text-emerald-400'}>{remainingPoints}</span> / {MAX_SPECIAL_POINT_POOL - 7}
+                Осталось очков: <span className={remainingPoints < 0 ? 'text-red-400' : 'text-emerald-400'}>{remainingPoints}</span> / {MAX_SPECIAL_POINT_POOL}
               </div>
             </div>
 
             <div className="text-[11px] text-neutral-400 bg-neutral-950/60 p-2.5 rounded border border-neutral-800">
-              <span className="text-amber-400 font-semibold">Мягкий Кап:</span> Подъем характеристики до 7 стоит 1 pt. 
-              Подъем до 8 стоит 2 pts, до 9 стоит 2 pts, до 10 стоит 3 pts.
+              <span className="text-amber-400 font-semibold">Мягкий Кап:</span> Значения 1–6 стоят по 1 очку за уровень; 7 стоит 7, 8 — 10, 9 — 14, 10 — 19 очков.
             </div>
 
             {/* Stats list */}
