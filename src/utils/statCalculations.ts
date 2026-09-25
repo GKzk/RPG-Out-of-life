@@ -264,7 +264,7 @@ export function calculateDerivedStats(
   const initiative = PER * 2 + AGI;
 
   // Critical Chance
-  let critChance = LCK * 2 + featCritBonus;
+  let critChance = LCK * 1.5 + featCritBonus;
   if (character.feats.includes('eloquent_diplomat')) {
     critChance = 0; // cannot deal crits
   }
