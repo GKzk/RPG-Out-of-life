@@ -11,20 +11,12 @@ export interface SpecialStats {
 }
 
 export type SkillName =
-  | 'smallGuns'
-  | 'bigGuns'
-  | 'energyWeapons'
-  | 'meleeWeapons'
-  | 'unarmed'
-  | 'medicine'
-  | 'science'
-  | 'speech'
-  | 'barter'
-  | 'survival'
-  | 'lockpick'
-  | 'stealth'
-  | 'explosives'
-  | 'repair';
+  | 'smallGuns' | 'bigGuns' | 'energyWeapons' | 'meleeWeapons' | 'unarmed'
+  | 'medicine' | 'herbalism' | 'science' | 'repair' | 'engineering'
+  | 'lockpick' | 'hacking' | 'stealth' | 'survival' | 'hunting' | 'scouting'
+  | 'explosives' | 'traps' | 'speech' | 'barter' | 'music' | 'intimidation'
+  | 'streetwise' | 'animalHandling' | 'firstAid' | 'athletics' | 'acrobatics'
+  | 'perception';
 
 export interface SkillDefinition {
   id: SkillName;
@@ -206,6 +198,8 @@ export interface CombatState {
 export interface ArchetypePreset {
   id: string;
   titleRu: string;
+  gender: 'male' | 'female';
+  backgroundId: string;
   subtitleRu: string;
   descriptionRu: string;
   special: SpecialStats;
