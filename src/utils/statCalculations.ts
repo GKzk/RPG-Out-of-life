@@ -11,7 +11,7 @@ import { SKILL_DEFINITIONS } from '../data/skills';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
 
-export const MAX_SPECIAL_POINT_POOL = 38; // 7 points base + 31 spendable points
+export const MAX_SPECIAL_POINT_POOL = 28;
 
 /**
  * Calculates how many points a base stat value costs considering soft caps:
@@ -21,15 +21,13 @@ export const MAX_SPECIAL_POINT_POOL = 38; // 7 points base + 31 spendable points
  * Stat 10: 3 points
  */
 export function getStatCost(val: number): number {
-  if (val <= 1) return 0;
-  let totalCost = 0;
-  for (let lvl = 2; lvl <= val; lvl++) {
-    if (lvl <= 7) totalCost += 1;
-    else if (lvl === 8) totalCost += 2;
-    else if (lvl === 9) totalCost += 2;
-    else if (lvl >= 10) totalCost += 3;
-  }
-  return totalCost;
+  if (val < 1 || val > 10) return 0;
+  if (val === 1) return 0;
+  if (val <= 6) return val - 1;
+  if (val === 7) return 7;
+  if (val === 8) return 10;
+  if (val === 9) return 14;
+  return 19;
 }
 
 export function getTotalPointCost(special: SpecialStats): number {
@@ -239,13 +237,13 @@ export function calculateDerivedStats(
   });
 
   // Base Max HP formula
-  let maxHp = END * 12 + STR * 4 + character.level * 6;
+  let maxHp = 25 + END * 4 + STR;
   if (character.feats.includes('glass_cannon')) {
     maxHp = Math.floor(maxHp * 0.75); // -25% HP penalty
   }
 
   // Action Points AP
-  let maxAp = 5 + Math.floor(AGI / 2) + featApBonus;
+  let maxAp = 7 + Math.floor(AGI / 2) + featApBonus;
   if (character.survival.hunger > 80) maxAp -= 2;
   if (character.survival.thirst > 80) maxAp -= 3;
   if (character.survival.fatigue > 70) maxAp -= 2;
@@ -263,7 +261,7 @@ export function calculateDerivedStats(
   const evasion = 10 + Math.floor(AGI / 2) + armorDefense + featEvasionBonus;
 
   // Initiative = d20 + AGI/2 + PER/2
-  const initiative = Math.floor(AGI / 2) + Math.floor(PER / 2);
+  const initiative = PER * 2 + AGI;
 
   // Critical Chance
   let critChance = LCK * 2 + featCritBonus;
@@ -272,7 +270,7 @@ export function calculateDerivedStats(
   }
 
   // Max Carry Weight = (STR * 15) + 30 + featCarryBonus
-  const carryWeightMax = STR * 15 + 30 + featCarryBonus;
+  const carryWeightMax = STR * 6 + 25 + featCarryBonus;
 
   // Current weight calculation
   let carryWeightCurrent = 0;
