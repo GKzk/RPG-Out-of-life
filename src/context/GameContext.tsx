@@ -22,7 +22,7 @@ import {
   getAttributeMod,
   calculateMeleeDamage,
   calculateCritMeleeDamage,
-  applyBurstDefense,
+  applyDamageMitigation,
 } from '../utils/characterSystem';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
@@ -611,7 +611,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       0,
       combatState.enemy.damageResistancePercent ?? 0
     );
-    const netDamage = applyBurstDefense(
+    const netDamage = applyDamageMitigation(
       rawDamage,
       damageThreshold,
       damageResistancePercent
@@ -701,7 +701,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const netDmg = applyBurstDefense(
+        const netDmg = applyDamageMitigation(
           dmg,
           damageThreshold,
           damageResistancePercent
