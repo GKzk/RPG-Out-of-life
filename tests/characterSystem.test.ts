@@ -93,3 +93,20 @@ assert.equal(bleeding.state, 'DEAD');
 
 assert.equal(resolveCompanionDamage(0, 20, 20).state, 'DEAD');
 assert.equal(canAttemptStabilizedProcedure(stabilized), true);
+
+// Baseline weapon/armor data mapping: exact distribution-preserving conversion.
+import { ITEM_DATABASE } from '../src/data/items';
+
+const pipeRifle = ITEM_DATABASE.find((item) => item.id === 'pipe_rifle')!;
+assertEqual(pipeRifle.weaponData?.damageDiceCount, 1, 'pipe rifle dice count');
+assertEqual(pipeRifle.weaponData?.damageDiceSides, 7, 'pipe rifle dice sides');
+assertEqual(pipeRifle.weaponData?.damageFlat, 5, 'pipe rifle flat');
+
+const shotgun = ITEM_DATABASE.find((item) => item.id === 'hunting_shotgun')!;
+assertEqual(shotgun.weaponData?.damageDiceCount, 1, 'shotgun dice count');
+assertEqual(shotgun.weaponData?.damageDiceSides, 13, 'shotgun dice sides');
+assertEqual(shotgun.weaponData?.damageFlat, 13, 'shotgun flat');
+
+const metalArmor = ITEM_DATABASE.find((item) => item.id === 'metal_armor')!;
+assertEqual(metalArmor.armorData?.damageThreshold, 8, 'metal armor DT');
+assertEqual(metalArmor.armorData?.damageResistancePercent, 0, 'metal armor DR');
