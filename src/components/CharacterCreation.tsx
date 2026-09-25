@@ -34,12 +34,13 @@ export const CharacterCreation: React.FC = () => {
   const { createCharacter } = useGame();
 
   const [name, setName] = useState('Алекс');
-  const [backgroundId, setBackgroundId] = useState('vault_service');
+  const [backgroundId, setBackgroundId] = useState('none');
+  const [showArchetypes, setShowArchetypes] = useState(false);
   const [special, setSpecial] = useState<SpecialStats>({
     STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5,
   });
   const [taggedSkills, setTaggedSkills] = useState<SkillName[]>(['repair', 'smallGuns', 'medicine']);
-  const [startingFeat, setStartingFeat] = useState('glass_cannon');
+  const [startingFeat, setStartingFeat] = useState('hard_life');
 
   const background = BACKGROUND_DEFINITIONS.find((item) => item.id === backgroundId) ?? BACKGROUND_DEFINITIONS[0];
   const totalCostUsed = getTotalPointCost(special);
@@ -54,29 +55,19 @@ export const CharacterCreation: React.FC = () => {
     carry: special.STR * 6 + 25,
   }), [special]);
 
-  const ensureBackgroundSkill = (skills: SkillName[]) => {
-    if (skills.includes(backgroundSkill)) return skills.slice(0, 3);
-    const next = skills.slice(0, 2);
-    return [...next, backgroundSkill];
-  };
-
   const handleSelectBackground = (id: string) => {
     const next = BACKGROUND_DEFINITIONS.find((item) => item.id === id);
     if (!next) return;
     setBackgroundId(id);
     setStartingFeat(next.recommendedFeat);
-    setTaggedSkills((current) => {
-      if (current.includes(next.coreSkill)) return current;
-      return [...current.slice(0, 2), next.coreSkill];
-    });
+    setTaggedSkills((current) => current.includes(next.coreSkill) ? current : [...current.slice(0, 2), next.coreSkill]);
   };
 
-  const handleSelectPreset = (presetId: string) => {
+  const startArchetype = (presetId: string) => {
     const preset = ARCHETYPE_PRESETS.find((item) => item.id === presetId);
     if (!preset) return;
-    setSpecial({ ...preset.special });
-    setStartingFeat(preset.startingFeat);
-    setTaggedSkills(ensureBackgroundSkill([...preset.taggedSkills]));
+    const bg = BACKGROUND_DEFINITIONS.find((item) => item.id === preset.backgroundId);
+    createCharacter(preset.titleRu.split(' — ')[0], bg?.titleRu ?? 'Без предыстории', preset.special, preset.taggedSkills, preset.startingFeat);
   };
 
   const updateStat = (attr: SpecialAttribute, delta: number) => {
@@ -110,25 +101,16 @@ export const CharacterCreation: React.FC = () => {
             backgroundImage: 'linear-gradient(#d7d0c2 1px, transparent 1px), linear-gradient(90deg, #d7d0c2 1px, transparent 1px)',
             backgroundSize: '28px 28px',
           }} />
-          <div className="relative p-5 md:p-7">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-[#b84d43] text-[10px] font-bold tracking-[0.28em] uppercase mb-2">
-                  <span className="w-7 h-px bg-[#b84d43]" />
-                  ЛИЧНОЕ ДЕЛО · 001
-                </div>
-                <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-[#eeeae0]">
-                  Создание персонажа
-                </h1>
-                <p className="mt-1 text-sm text-[#8f9891] max-w-2xl">
-                  Происхождение задаёт основу. Остальное — ваши решения.
-                </p>
+          <div className="relative p-5 md:p-7 flex items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-[#b84d43] text-[11px] font-bold tracking-[0.24em] uppercase mb-2">
+                <span className="w-8 h-px bg-[#b84d43]" /> ЛИЧНОЕ ДЕЛО · 001
               </div>
-              <div className="hidden sm:flex items-center gap-2 text-[#6f7871] text-[10px] uppercase tracking-widest">
-                <span className="w-2 h-2 rounded-full bg-[#b84d43]" />
-                ДОСЬЕ · 01
-              </div>
+              <h1 className="text-3xl md:text-5xl font-semibold tracking-tight text-[#eeeae0]">ЛИЧНОЕ ДЕЛО</h1>
             </div>
+            <button onClick={() => setShowArchetypes(true)} className="rounded-xl border border-[#6b413b] bg-[#241a18] px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[#d8c9c0] hover:border-[#b84d43]">
+              Готовые персонажи
+            </button>
           </div>
         </header>
 
@@ -147,7 +129,7 @@ export const CharacterCreation: React.FC = () => {
               />
             </div>
             <div className="mt-4 p-3 rounded-xl bg-[#121614] border border-[#2d3530]">
-              <div className="text-[10px] uppercase tracking-widest text-[#68716b]">Происхождение</div>
+              <div className="text-[10px] uppercase tracking-widest text-[#68716b]">Предыстория</div>
               <div className="mt-1 text-sm font-medium text-[#e6e2d8]">{background.titleRu}</div>
               <div className="mt-1 text-xs text-[#879089]">{background.subtitleRu}</div>
             </div>
@@ -175,7 +157,7 @@ export const CharacterCreation: React.FC = () => {
                     <div className="mt-1 text-[10px] uppercase tracking-wider text-[#6f7871]">{item.subtitleRu}</div>
                     <p className="mt-2 text-[11px] leading-relaxed text-[#89918b]">{item.descriptionRu}</p>
                     <div className="mt-3 text-[10px] text-[#c95a4f]">
-                      Обязательный навык: <span className="text-[#b9b5ac]">{backgroundSkill === item.coreSkill ? item.titleRu === item.titleRu ? (SKILL_DEFINITIONS.find((s) => s.id === item.coreSkill)?.nameRu ?? '') : '' : (SKILL_DEFINITIONS.find((s) => s.id === item.coreSkill)?.nameRu ?? '')}</span>
+                      Основной навык: <span className="text-[#b9b5ac]">{SKILL_DEFINITIONS.find((s) => s.id === item.coreSkill)?.nameRu ?? item.coreSkill}</span>
                     </div>
                   </button>
                 );
@@ -184,42 +166,33 @@ export const CharacterCreation: React.FC = () => {
           </div>
         </section>
 
-        {/* Archetypes */}
-        <section className="rounded-2xl border border-[#39413c] bg-[#191d1b] p-5 mb-5">
-          <SectionTitle number="03" title="Готовые архетипы" right="Все укладываются в 28 очков" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {ARCHETYPE_PRESETS.map((preset) => {
-              const selected = preset.special === special;
-              return (
-                <button
-                  key={preset.id}
-                  onClick={() => handleSelectPreset(preset.id)}
-                  className={`group text-left rounded-xl border p-4 transition-all ${
-                    selected ? 'border-[#b84d43] bg-[#241a18]' : 'border-[#303833] bg-[#121614] hover:border-[#59625b]'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${selected ? 'bg-[#b84d43] text-white' : 'bg-[#252c28] text-[#9ca49d]'}`}>
-                      <Wrench className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-[#e6e2d8]">{preset.titleRu}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-[#727b74] mt-0.5">{preset.subtitleRu}</div>
-                    </div>
+        {showArchetypes && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-4 md:p-8 overflow-y-auto">
+            <div className="max-w-6xl mx-auto rounded-2xl border border-[#4a514c] bg-[#171b19] shadow-2xl p-5 md:p-7">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <div className="text-[11px] uppercase tracking-[0.2em] text-[#b84d43]">Старт без ручной сборки</div>
+                  <h2 className="text-2xl md:text-3xl font-semibold text-[#eeeae0] mt-1">Готовые персонажи</h2>
+                  <p className="text-sm text-[#89918b] mt-1">Выберите героя с готовыми характеристиками, навыками и перком — и сразу начните игру.</p>
+                </div>
+                <button onClick={() => setShowArchetypes(false)} className="px-3 py-2 rounded-lg border border-[#3a433d] text-[#aeb5ae]">Закрыть</button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                {ARCHETYPE_PRESETS.map((preset) => (
+                  <div key={preset.id} className="rounded-xl border border-[#303833] bg-[#101412] p-4">
+                    <div className="text-base font-semibold text-[#eeeae0]">{preset.titleRu}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[#737c75] mt-1">{preset.subtitleRu}</div>
+                    <p className="text-[11px] leading-relaxed text-[#8f9891] mt-3 min-h-[82px]">{preset.descriptionRu}</p>
+                    <div className="mt-3 text-[10px] text-[#aaa9a0]">Предыстория: {BACKGROUND_DEFINITIONS.find((b) => b.id === preset.backgroundId)?.titleRu}</div>
+                    <div className="mt-2 flex flex-wrap gap-1">{preset.taggedSkills.map(id => <span key={id} className="px-2 py-1 rounded bg-[#202622] text-[9px] text-[#b8beb7]">{SKILL_DEFINITIONS.find(s => s.id === id)?.nameRu}</span>)}</div>
+                    <div className="mt-3 text-[10px] text-[#d08a7f]">Перк: {FEAT_DEFINITIONS.find(f => f.id === preset.startingFeat)?.nameRu}</div>
+                    <button onClick={() => startArchetype(preset.id)} className="w-full mt-4 rounded-lg bg-[#a9473f] hover:bg-[#bc5148] text-white text-xs font-semibold py-2.5">НАЧАТЬ ИГРУ</button>
                   </div>
-                  <p className="mt-3 text-xs leading-relaxed text-[#8c958e] line-clamp-2">{preset.descriptionRu}</p>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {preset.taggedSkills.map((skillId) => (
-                      <span key={skillId} className="px-2 py-1 rounded-md bg-[#202622] text-[10px] text-[#aeb5ae]">
-                        {SKILL_DEFINITIONS.find((s) => s.id === skillId)?.nameRu}
-                      </span>
-                    ))}
-                  </div>
-                </button>
-              );
-            })}
+                ))}
+              </div>
+            </div>
           </div>
-        </section>
+        )}
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
           {/* Stats */}
