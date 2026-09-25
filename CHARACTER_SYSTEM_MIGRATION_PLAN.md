@@ -3,7 +3,7 @@
 **Project:** RPG-Out-of-life  
 **Branch:** main  
 **Design baseline:** CHARACTER_SYSTEM_v0.4.5.7_FINAL_DESIGN_LOCK  
-**Status:** Planning only — no `src/` implementation in this document.
+**Status:** Migration in progress — source implementation is authorized and being audited against the locked design.
 
 ## 1. Migration rule
 
@@ -111,4 +111,4 @@ Do not:
 9. Report every remaining discrepancy.
 10. Only after all discrepancies are resolved, consider Character System migration complete.
 
-**Important:** This document authorizes planning, not an automatic source-code rewrite. Any implementation should follow the mapping and test gates above.
+**Important:** Source implementation is now in progress by explicit project instruction. This document remains the migration gate: no remaining discrepancy may be silently treated as canonical, and the migration is not complete until the audit/test gates are passed.
