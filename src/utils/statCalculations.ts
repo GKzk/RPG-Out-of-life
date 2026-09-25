@@ -326,8 +326,8 @@ export function calculateSkillValue(
 
   // Feat modifiers
   if (character.feats.includes('eloquent_diplomat')) {
-    if (skillId === 'speech' || skillId === 'barter') baseVal += 25;
-    if (skillId === 'meleeWeapons' || skillId === 'unarmed') baseVal -= 20;
+    if (skillId === 'persuasion' || skillId === 'barter') baseVal += 25;
+    if (skillId === 'melee' || skillId === 'unarmed') baseVal -= 20;
   }
 
   return Math.max(1, baseVal);
