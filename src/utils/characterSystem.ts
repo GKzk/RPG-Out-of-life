@@ -138,13 +138,22 @@ export function calculateCritBurstDamage(
   return 2 * maxWeaponDie + 2 * weaponDieRoll + weaponFlat + attributeMod;
 }
 
-export function applyBurstDefense(
+export function applyDamageMitigation(
   damage: number,
   damageThreshold: number,
   damageResistancePercent: number
 ): number {
   const postDT = Math.max(0, damage - damageThreshold);
   return Math.max(0, Math.floor(postDT * (1 - damageResistancePercent / 100)));
+}
+
+/** @deprecated Use applyDamageMitigation for all canonical DT → DR resolution. */
+export function applyBurstDefense(
+  damage: number,
+  damageThreshold: number,
+  damageResistancePercent: number
+): number {
+  return applyDamageMitigation(damage, damageThreshold, damageResistancePercent);
 }
 
 export function resolveBurst(input: BurstAttackInput, targetAC: number, lck: number): BurstAttackResult {
