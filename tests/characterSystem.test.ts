@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { ITEM_DATABASE } from '../src/data/items';
 import { resolveCompanionDamage, stabilizeCompanion, advanceCompanionBleedout, resolveStabilizedMedicalProcedure, canAttemptStabilizedProcedure } from '../src/utils/companionSystem';
 import {
   getAttributeMod,
@@ -95,7 +96,6 @@ assert.equal(resolveCompanionDamage(0, 20, 20).state, 'DEAD');
 assert.equal(canAttemptStabilizedProcedure(stabilized), true);
 
 // Baseline weapon/armor data mapping: exact distribution-preserving conversion.
-import { ITEM_DATABASE } from '../src/data/items';
 
 const pipeRifle = ITEM_DATABASE.find((item) => item.id === 'pipe_rifle')!;
 assert.equal(pipeRifle.weaponData?.damageDiceCount, 1, 'pipe rifle dice count');
