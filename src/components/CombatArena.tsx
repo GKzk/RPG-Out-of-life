@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ITEM_DATABASE } from '../data/items';
-import { calculateSkillValue, calculateHitChance } from '../utils/statCalculations';
+import { calculateSkillValue } from '../utils/statCalculations';
+import { getAttributeMod, getLckThreatMin } from '../utils/characterSystem';
 import {
   Swords,
   Shield,
@@ -79,24 +80,18 @@ export const CombatArena: React.FC = () => {
     skillReq: 'unarmed' as any,
   };
 
-  // Calculate live hit chance preview
+  // Live preview mirrors the actual D20 attack resolver.
+  // No legacy percentage formula or aimed-part accuracy/AP modifier is used.
   const skillVal = calculateSkillValue(weaponData.skillReq, character, effectiveSpecial);
-  const hasHeavyStriker = character.feats.includes('heavy_striker');
-  const hasSniperEye = character.feats.includes('sniper_eye');
+  const attackMod = getAttributeMod(effectiveSpecial.PER);
+  const targetAC = enemy.evasion + (combatState.enemyDefensiveStance ? 4 : 0);
+  const requiredD20 = Math.max(2, targetAC - attackMod - skillVal);
+  const normalHitFaces = Math.max(0, 21 - Math.max(2, requiredD20));
+  const natural20AutoHit = 1;
+  const previewHitChance = Math.round(((normalHitFaces + natural20AutoHit) / 20) * 100);
 
-  let previewHitChance = calculateHitChance(
-    skillVal,
-    effectiveSpecial.PER,
-    enemy.evasion + (combatState.enemyDefensiveStance ? 4 : 0),
-    distance,
-    weaponData.range,
-    hasHeavyStriker,
-    hasSniperEye
-  );
-  if (aimedPart === 'head') previewHitChance -= 20;
-
-  let apCost = weaponData.apCost;
-  if (aimedPart === 'head') apCost += 1;
+  const apCost = weaponData.apCost;
+  const critThreat = getLckThreatMin(effectiveSpecial.LCK);
 
   const stimpakItem = inventory.find((i) => i.item.id === 'stimpak');
 
