@@ -119,8 +119,12 @@ export interface Item {
   value: number; // Caps
   description: string;
   weaponData?: {
+    // Legacy damage range retained until weapon dice/flat values are explicitly designed.
     damageMin: number;
     damageMax: number;
+    damageDiceCount?: number;
+    damageDiceSides?: number;
+    damageFlat?: number;
     apCost: number;
     range: 'melee' | 'close' | 'medium' | 'long';
     skillReq: SkillName;
@@ -128,7 +132,10 @@ export interface Item {
     critMultiplier: number;
   };
   armorData?: {
+    // Legacy defense currently acts as DT. DR is optional and defaults to 0.
     defense: number;
+    damageThreshold?: number;
+    damageResistancePercent?: number;
     radResistBonus?: number;
     agiPenalty?: number;
   };
