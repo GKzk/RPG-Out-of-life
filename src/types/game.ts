@@ -134,6 +134,8 @@ export interface Item {
   armorData?: {
     // Legacy defense currently acts as DT. DR is optional and defaults to 0.
     defense: number;
+    /** Canonical Armor Class contribution. Legacy `defense` is DT only. */
+    armorClassBonus?: number;
     damageThreshold?: number;
     damageResistancePercent?: number;
     radResistBonus?: number;
@@ -166,6 +168,11 @@ export interface Enemy {
   apCurrent: number;
   evasion: number;
   armor: number;
+  /** Canonical enemy mitigation fields. Legacy `armor` remains as a compatibility field. */
+  damageThreshold?: number;
+  damageResistancePercent?: number;
+  /** Explicit attack modifier; avoids deriving accuracy from damage values. */
+  attackBonus?: number;
   initiative: number;
   damageMin: number;
   damageMax: number;
