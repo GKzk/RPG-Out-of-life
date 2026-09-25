@@ -2,6 +2,7 @@ import React from 'react';
 import { useGame } from '../context/GameContext';
 import { SpecialAttribute } from '../types/game';
 import { getActiveAntiSynergies } from '../utils/statCalculations';
+import { getLckThreatMin } from '../utils/characterSystem';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import {
   ShieldAlert,
