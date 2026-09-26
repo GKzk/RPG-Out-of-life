@@ -12,6 +12,7 @@ import {
   DistanceBand,
   Item,
 } from '../types/game';
+import { ARCHETYPE_PRESETS } from '../data/archetypes';
 import {
   calculateEffectiveSpecial,
   calculateDerivedStats,
@@ -212,7 +213,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loadPresetCharacter = (presetId: string, customName?: string) => {
-    const preset = require('../data/archetypes').ARCHETYPE_PRESETS.find((p: any) => p.id === presetId);
+    const preset = ARCHETYPE_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
     createCharacter(
       customName || preset.titleRu,
