@@ -149,20 +149,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startingFeatId: string
   ) => {
     const initialSkillInvestments: Record<SkillName, number> = {
-      smallGuns: 0,
-      bigGuns: 0,
-      energyWeapons: 0,
-      meleeWeapons: 0,
-      unarmed: 0,
-      medicine: 0,
-      science: 0,
-      speech: 0,
-      barter: 0,
-      survival: 0,
-      lockpick: 0,
+      athletics: 0,
       stealth: 0,
+      sleightOfHand: 0,
+      unarmed: 0,
+      melee: 0,
+      firearms: 0,
       explosives: 0,
-      repair: 0,
+      survival: 0,
+      search: 0,
+      navigation: 0,
+      insight: 0,
+      medicine: 0,
+      mechanics: 0,
+      electronics: 0,
+      science: 0,
+      crafting: 0,
+      persuasion: 0,
+      barter: 0,
+      deception: 0,
+      leadership: 0,
+      animalHandling: 0,
+      performance: 0,
     };
 
     const newChar: Character = {
@@ -302,7 +310,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Scavenge chance based on PER and Survival skill
     const survSkill = calculateSkillValue('survival', character, effectiveSpecial);
-    const lockpickSkill = calculateSkillValue('lockpick', character, effectiveSpecial);
     const roll = rollD20() + Math.floor(survSkill / 10);
 
     addLogMessage(`Поиск в руинах: бросок d20+бонус = ${roll}...`, 'info');
