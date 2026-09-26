@@ -335,6 +335,59 @@ export function calculateSkillValue(
   return Math.max(1, Math.min(100, baseVal));
 }
 
+export type SkillCheckOutcome = 'success' | 'partial' | 'failure' | 'critical_failure' | 'critical_success';
+
+export interface SkillCheckResult {
+  baseScore: number;
+  rollModifier: number;
+  finalScore: number;
+  margin: number;
+  outcome: SkillCheckOutcome;
+}
+
+/**
+ * Canonical skill-check score from GAME_DESIGN/SKILL_CHECK_BALANCE.md.
+ * Skill is the independent 0–100 proficiency value; attributes contribute separately.
+ */
+export function calculateSkillCheckBase(attribute: number, skill: number): number {
+  const safeAttribute = Math.max(1, Math.min(10, attribute));
+  const safeSkill = Math.max(0, Math.min(100, skill));
+  return safeAttribute * 4 + safeSkill * 0.6;
+}
+
+/**
+ * Resolves the canonical 1d20 skill check.
+ * Roll modifier is d20 - 10, producing -9..+10.
+ */
+export function resolveSkillCheck(
+  attribute: number,
+  skill: number,
+  difficulty: number,
+  d20: number,
+  externalModifier = 0
+): SkillCheckResult {
+  if (!Number.isInteger(d20) || d20 < 1 || d20 > 20) {
+    throw new Error('d20 result must be an integer in [1, 20]');
+  }
+  if (!Number.isFinite(difficulty)) {
+    throw new Error('difficulty must be finite');
+  }
+
+  const baseScore = calculateSkillCheckBase(attribute, skill);
+  const rollModifier = d20 - 10;
+  const finalScore = baseScore + externalModifier + rollModifier;
+  const margin = finalScore - difficulty;
+
+  let outcome: SkillCheckOutcome;
+  if (d20 === 20 && margin >= 0) outcome = 'critical_success';
+  else if (margin >= 0) outcome = 'success';
+  else if (margin >= -9) outcome = 'partial';
+  else if (margin >= -19) outcome = 'failure';
+  else outcome = 'critical_failure';
+
+  return { baseScore, rollModifier, finalScore, margin, outcome };
+}
+
 /**
  * Random d20 roll helper
  */
