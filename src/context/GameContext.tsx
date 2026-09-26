@@ -45,7 +45,11 @@ interface GameContextType {
     background: string,
     baseSpecial: SpecialStats,
     taggedSkills: SkillName[],
-    startingFeatId: string
+    startingFeatId: string,
+    gender?: 'male' | 'female',
+    avatarId?: string,
+    petId?: string,
+    backgroundId?: string
   ) => void;
   loadPresetCharacter: (presetId: string, name?: string) => void;
 
@@ -141,13 +145,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCombatLog((prev) => [newEntry, ...prev.slice(0, 49)]);
   };
 
-  // Create character
   const createCharacter = (
     name: string,
     background: string,
     baseSpecial: SpecialStats,
     taggedSkills: SkillName[],
-    startingFeatId: string
+    startingFeatId: string,
+    gender: 'male' | 'female' = 'male',
+    avatarId = 'm1',
+    petId = 'hound',
+    backgroundId = 'none'
   ) => {
     const initialSkillInvestments: Record<SkillName, number> = {
       athletics: 0,
@@ -176,7 +183,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const newChar: Character = {
       name: name || 'Странник Пустоши',
+      gender,
+      avatarId,
+      backgroundId,
       background: background || 'Выживший из Развалин',
+      petId,
       level: 1,
       xp: 0,
       baseSpecial,

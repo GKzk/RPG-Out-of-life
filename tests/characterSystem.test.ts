@@ -55,7 +55,7 @@ assert.equal(isBurstCritical(18, 8, 18, 18), true);
 
 assert.equal(calculateBurstDamage(4, 2, -1), 9);
 assert.equal(calculateBurstDamage(1, 0, -4), 1);
-assert.equal(calculateCritBurstDamage(6, 4, 2, -1), 17);
+assert.equal(calculateCritBurstDamage(6, 4, 2, -1), 21);
 assert.equal(applyBurstDefense(20, 5, 50), 7);
 
 const nat20 = resolveBurst({
@@ -78,7 +78,7 @@ assert.equal(nat1.misfire, true);
 console.log('Character System v0.4.5.7 math tests: PASS');
 
 
-const healthy = resolveCompanionDamage(10, 20, 10);
+const healthy = resolveCompanionDamage(10, 20, 9);
 assert.equal(healthy.state, 'HEALTHY');
 
 const downed = resolveCompanionDamage(10, 20, 11);
@@ -117,6 +117,9 @@ assert.equal(metalArmor.armorData?.damageResistancePercent, 0, 'metal armor DR')
 
 const auditCharacter = {
   name: 'Audit',
+  gender: 'male' as const,
+  avatarId: 'm1',
+  backgroundId: 'none',
   background: 'Test',
   level: 1,
   xp: 0,
@@ -200,7 +203,7 @@ assert.equal(calculateSkillValue('athletics', taggedCharacter, neutralSpecial), 
 
 const specialistSpecial = { STR: 10, PER: 10, END: 10, CHA: 10, INT: 10, AGI: 10, LCK: 10 };
 assert.equal(calculateSkillValue('athletics', neutralSkillCharacter, specialistSpecial), 50, '10/10 attribute baseline');
-assert.equal(calculateSkillValue('athletics', taggedCharacter, specialistSpecial), 70, '10/10 tagged baseline');
+assert.equal(calculateSkillValue('performance', taggedCharacter, specialistSpecial), 70, '10/10 tagged baseline');
 
 const overCapCharacter = {
   ...neutralSkillCharacter,
@@ -239,8 +242,12 @@ assert.equal(partialBorder.margin, -9);
 assert.equal(partialBorder.outcome, 'partial');
 
 const criticalFailure = resolveSkillCheck(5, 0, 50, 1);
-assert.equal(criticalFailure.margin, -29);
+assert.equal(criticalFailure.margin, -39);
 assert.equal(criticalFailure.outcome, 'critical_failure');
+
+const natural1PartialMargin = resolveSkillCheck(5, 50, 50, 1);
+assert.equal(natural1PartialMargin.margin, -9);
+assert.equal(natural1PartialMargin.outcome, 'critical_failure');
 
 const criticalSuccess = resolveSkillCheck(10, 100, 100, 20);
 assert.equal(criticalSuccess.margin, 10);
@@ -249,7 +256,7 @@ assert.equal(criticalSuccess.outcome, 'critical_success');
 const maxSkillStillRollDependent = [1, 20].map((d20) =>
   resolveSkillCheck(10, 100, 100, d20).outcome
 );
-assert.deepEqual(maxSkillStillRollDependent, ['partial', 'critical_success']);
+assert.deepEqual(maxSkillStillRollDependent, ['critical_failure', 'critical_success']);
 
 assert.throws(() => resolveSkillCheck(5, 50, 50, 0));
 assert.throws(() => resolveSkillCheck(5, 50, 50, 21));

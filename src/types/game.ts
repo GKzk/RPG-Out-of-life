@@ -85,7 +85,11 @@ export interface AntiSynergyPenalty {
 
 export interface Character {
   name: string;
+  gender: 'male' | 'female';
+  avatarId: string;
+  backgroundId: string;
   background: string;
+  petId?: string;
   level: number;
   xp: number;
   baseSpecial: SpecialStats;

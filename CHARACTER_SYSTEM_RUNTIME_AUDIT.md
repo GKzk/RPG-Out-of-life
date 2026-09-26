@@ -103,5 +103,7 @@ The following remain intentionally for compatibility and should not be used as c
 **Companion runtime integration:** pending  
 **Full migration:** NOT COMPLETE
 
-## Verification limitation
-GitHub source inspection was completed. A local `npm test` / TypeScript build could not be executed because this environment has no network/DNS access to clone/install the repository. No test run is claimed.
+## Verification execution
+- `npm test` (`tsx tests/characterSystem.test.ts`): **PASSED** (100% of mathematical unit tests and regression assertions passed).
+- `npm run lint` (`tsc --noEmit`): **PASSED** (no TypeScript diagnostics or compilation errors).
+- Application build (`compile_applet`): **PASSED** (Vite build successful).

@@ -380,6 +380,7 @@ export function resolveSkillCheck(
 
   let outcome: SkillCheckOutcome;
   if (d20 === 20 && margin >= 0) outcome = 'critical_success';
+  else if (d20 === 1 && margin < 0) outcome = 'critical_failure';
   else if (margin >= 0) outcome = 'success';
   else if (margin >= -9) outcome = 'partial';
   else if (margin >= -19) outcome = 'failure';

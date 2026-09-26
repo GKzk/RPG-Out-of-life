@@ -7,7 +7,23 @@ import { ARCHETYPE_PRESETS } from '../data/archetypes';
 import { BACKGROUND_DEFINITIONS } from '../data/backgrounds';
 import { SKILL_DEFINITIONS } from '../data/skills';
 import { FEAT_DEFINITIONS } from '../data/feats';
-import { Check, ChevronRight, ShieldAlert, UserRound, Wrench, Crosshair, Brain, HeartPulse, BriefcaseBusiness, Sparkles } from 'lucide-react';
+import { PET_DEFINITIONS } from '../data/pets';
+import {
+  Check,
+  ChevronRight,
+  ShieldAlert,
+  UserRound,
+  Wrench,
+  Crosshair,
+  Brain,
+  HeartPulse,
+  BriefcaseBusiness,
+  Sparkles,
+  Dog,
+  Cat,
+  Bird,
+  UserX,
+} from 'lucide-react';
 
 const SPECIAL_NAMES: Record<SpecialAttribute, { ru: string; short: string }> = {
   STR: { ru: 'Сила', short: 'Физика и ближний бой' },
@@ -22,18 +38,46 @@ const SPECIAL_NAMES: Record<SpecialAttribute, { ru: string; short: string }> = {
 const STAT_ORDER: SpecialAttribute[] = ['STR', 'PER', 'END', 'CHA', 'INT', 'AGI', 'LCK'];
 
 const FEAT_ICON: Record<string, React.ReactNode> = {
-  glass_cannon: <Crosshair className="w-4 h-4" />,
-  heavy_striker: <ShieldAlert className="w-4 h-4" />,
-  sniper_eye: <Crosshair className="w-4 h-4" />,
-  wasteland_survivalist: <HeartPulse className="w-4 h-4" />,
-  eloquent_diplomat: <BriefcaseBusiness className="w-4 h-4" />,
-  lucky_bastard: <Sparkles className="w-4 h-4" />,
+  one_eyed: <Crosshair className="w-4 h-4" />,
+  sprint: <Sparkles className="w-4 h-4" />,
+  musician: <Sparkles className="w-4 h-4" />,
+  metabolism: <HeartPulse className="w-4 h-4" />,
+  alcoholic: <HeartPulse className="w-4 h-4" />,
+  junkie: <HeartPulse className="w-4 h-4" />,
+  narcissist: <BriefcaseBusiness className="w-4 h-4" />,
+  workaholic: <Wrench className="w-4 h-4" />,
+  sleepless: <ShieldAlert className="w-4 h-4" />,
+  hard_life: <ShieldAlert className="w-4 h-4" />,
+  iron_stomach: <HeartPulse className="w-4 h-4" />,
+  glass_nerves: <Brain className="w-4 h-4" />,
+  pack_rat: <Wrench className="w-4 h-4" />,
 };
+
+interface AvatarOption {
+  id: string;
+  nameRu: string;
+  gender: 'male' | 'female';
+  badge: string;
+}
+
+const AVATAR_OPTIONS: AvatarOption[] = [
+  { id: 'm1', nameRu: 'Следопыт', gender: 'male', badge: 'СЛЕД' },
+  { id: 'm2', nameRu: 'Ветеран', gender: 'male', badge: 'ВЕТ' },
+  { id: 'm3', nameRu: 'Бродяга', gender: 'male', badge: 'БРОД' },
+  { id: 'm4', nameRu: 'Разведчик', gender: 'male', badge: 'РАЗВ' },
+  { id: 'f1', nameRu: 'Охотница', gender: 'female', badge: 'ОХОТ' },
+  { id: 'f2', nameRu: 'Санитар', gender: 'female', badge: 'САН' },
+  { id: 'f3', nameRu: 'Механик', gender: 'female', badge: 'ТЕХ' },
+  { id: 'f4', nameRu: 'Стрелок', gender: 'female', badge: 'СТР' },
+];
 
 export const CharacterCreation: React.FC = () => {
   const { createCharacter } = useGame();
 
   const [name, setName] = useState('Алекс');
+  const [gender, setGender] = useState<'male' | 'female'>('male');
+  const [avatarId, setAvatarId] = useState('m1');
+  const [petId, setPetId] = useState('hound');
   const [backgroundId, setBackgroundId] = useState('none');
   const [showArchetypes, setShowArchetypes] = useState(false);
   const [special, setSpecial] = useState<SpecialStats>({
@@ -55,6 +99,15 @@ export const CharacterCreation: React.FC = () => {
     carry: special.STR * 6 + 25,
   }), [special]);
 
+  const handleGenderChange = (newGender: 'male' | 'female') => {
+    setGender(newGender);
+    if (newGender === 'female' && avatarId.startsWith('m')) {
+      setAvatarId('f1');
+    } else if (newGender === 'male' && avatarId.startsWith('f')) {
+      setAvatarId('m1');
+    }
+  };
+
   const handleSelectBackground = (id: string) => {
     const next = BACKGROUND_DEFINITIONS.find((item) => item.id === id);
     if (!next) return;
@@ -67,7 +120,17 @@ export const CharacterCreation: React.FC = () => {
     const preset = ARCHETYPE_PRESETS.find((item) => item.id === presetId);
     if (!preset) return;
     const bg = BACKGROUND_DEFINITIONS.find((item) => item.id === preset.backgroundId);
-    createCharacter(preset.titleRu.split(' — ')[0], bg?.titleRu ?? 'Без предыстории', preset.special, preset.taggedSkills, preset.startingFeat);
+    createCharacter(
+      preset.titleRu.split(' — ')[0],
+      bg?.titleRu ?? 'Без предыстории',
+      preset.special,
+      preset.taggedSkills,
+      preset.startingFeat,
+      preset.gender || 'male',
+      preset.gender === 'female' ? 'f1' : 'm1',
+      'hound',
+      preset.backgroundId || 'none'
+    );
   };
 
   const updateStat = (attr: SpecialAttribute, delta: number) => {
@@ -89,8 +152,20 @@ export const CharacterCreation: React.FC = () => {
 
   const handleFinishCreation = () => {
     if (taggedSkills.length !== 3 || !taggedSkills.includes(backgroundSkill) || remainingPoints < 0) return;
-    createCharacter(name.trim() || 'Алекс', background.titleRu, special, taggedSkills, startingFeat);
+    createCharacter(
+      name.trim() || 'Алекс',
+      background.titleRu,
+      special,
+      taggedSkills,
+      startingFeat,
+      gender,
+      avatarId,
+      petId,
+      background.id
+    );
   };
+
+  const currentAvatars = AVATAR_OPTIONS.filter((a) => a.gender === gender);
 
   return (
     <main className="min-h-screen bg-[#111312] text-[#e6e2d8]">
@@ -108,7 +183,10 @@ export const CharacterCreation: React.FC = () => {
               </div>
               <h1 className="text-3xl md:text-5xl font-semibold tracking-tight text-[#eeeae0]">ЛИЧНОЕ ДЕЛО</h1>
             </div>
-            <button onClick={() => setShowArchetypes(true)} className="rounded-xl border border-[#6b413b] bg-[#241a18] px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[#d8c9c0] hover:border-[#b84d43]">
+            <button
+              onClick={() => setShowArchetypes(true)}
+              className="rounded-xl border border-[#6b413b] bg-[#241a18] px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[#d8c9c0] hover:border-[#b84d43] transition-colors"
+            >
               Готовые персонажи
             </button>
           </div>
@@ -116,18 +194,75 @@ export const CharacterCreation: React.FC = () => {
 
         {/* Identity + Background */}
         <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 mb-5">
-          <div className="xl:col-span-4 rounded-2xl border border-[#39413c] bg-[#191d1b] p-5">
-            <SectionTitle number="01" title="Личность" />
-            <label className="block text-[11px] text-[#89918b] uppercase tracking-wider mb-2">Имя</label>
-            <div className="relative">
-              <UserRound className="absolute left-3 top-3.5 w-4 h-4 text-[#657068]" />
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[#101311] border border-[#343c37] rounded-xl pl-10 pr-3 py-3 text-sm text-[#eeeae0] outline-none focus:border-[#b84d43] transition-colors"
-                maxLength={32}
-              />
+          <div className="xl:col-span-4 rounded-2xl border border-[#39413c] bg-[#191d1b] p-5 flex flex-col justify-between">
+            <div>
+              <SectionTitle number="01" title="Личность" />
+              
+              <label className="block text-[11px] text-[#89918b] uppercase tracking-wider mb-1.5 mt-3">Имя</label>
+              <div className="relative">
+                <UserRound className="absolute left-3 top-3.5 w-4 h-4 text-[#657068]" />
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-[#101311] border border-[#343c37] rounded-xl pl-10 pr-3 py-2.5 text-sm text-[#eeeae0] outline-none focus:border-[#b84d43] transition-colors"
+                  maxLength={32}
+                  placeholder="Имя персонажа"
+                />
+              </div>
+
+              {/* Gender selection */}
+              <label className="block text-[11px] text-[#89918b] uppercase tracking-wider mb-1.5 mt-3">Пол</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleGenderChange('male')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition-all ${
+                    gender === 'male'
+                      ? 'border-[#b84d43] bg-[#241a18] text-[#eeeae0] shadow-[inset_2px_0_0_#b84d43]'
+                      : 'border-[#303833] bg-[#121614] text-[#8f9891] hover:border-[#59625b]'
+                  }`}
+                >
+                  Мужской
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenderChange('female')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition-all ${
+                    gender === 'female'
+                      ? 'border-[#b84d43] bg-[#241a18] text-[#eeeae0] shadow-[inset_2px_0_0_#b84d43]'
+                      : 'border-[#303833] bg-[#121614] text-[#8f9891] hover:border-[#59625b]'
+                  }`}
+                >
+                  Женский
+                </button>
+              </div>
+
+              {/* Avatar selection */}
+              <label className="block text-[11px] text-[#89918b] uppercase tracking-wider mb-1.5 mt-3">Внешность</label>
+              <div className="grid grid-cols-4 gap-2">
+                {currentAvatars.map((av) => {
+                  const isSel = avatarId === av.id;
+                  return (
+                    <button
+                      key={av.id}
+                      type="button"
+                      onClick={() => setAvatarId(av.id)}
+                      className={`p-2 rounded-xl border flex flex-col items-center justify-center transition-all ${
+                        isSel
+                          ? 'border-[#b84d43] bg-[#281c1a] text-[#eeeae0]'
+                          : 'border-[#2d3530] bg-[#121614] text-[#788179] hover:border-[#59625b]'
+                      }`}
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-[#202622] flex items-center justify-center text-[10px] font-bold text-[#d2cec4] mb-1">
+                        {av.badge}
+                      </div>
+                      <span className="text-[10px] truncate max-w-full">{av.nameRu}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
             <div className="mt-4 p-3 rounded-xl bg-[#121614] border border-[#2d3530]">
               <div className="text-[10px] uppercase tracking-widest text-[#68716b]">Предыстория</div>
               <div className="mt-1 text-sm font-medium text-[#e6e2d8]">{background.titleRu}</div>
@@ -137,7 +272,7 @@ export const CharacterCreation: React.FC = () => {
 
           <div className="xl:col-span-8 rounded-2xl border border-[#39413c] bg-[#191d1b] p-5">
             <SectionTitle number="02" title="Предыстория" right="Выберите основу" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 mt-3">
               {BACKGROUND_DEFINITIONS.map((item) => {
                 const selected = item.id === backgroundId;
                 return (
@@ -166,6 +301,45 @@ export const CharacterCreation: React.FC = () => {
           </div>
         </section>
 
+        {/* Section: Pet Companion */}
+        <section className="rounded-2xl border border-[#39413c] bg-[#191d1b] p-5 mb-5">
+          <SectionTitle number="03" title="Спутник-питомец" right="Выбор напарника при пробуждении" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+            {PET_DEFINITIONS.map((pet) => {
+              const selected = petId === pet.id;
+              const PetIcon = pet.iconName === 'Dog' ? Dog : pet.iconName === 'Cat' ? Cat : pet.iconName === 'Bird' ? Bird : UserX;
+              return (
+                <button
+                  key={pet.id}
+                  onClick={() => setPetId(pet.id)}
+                  className={`text-left rounded-xl border p-3.5 transition-all ${
+                    selected
+                      ? 'border-[#b84d43] bg-[#241a18] shadow-[inset_3px_0_0_#b84d43]'
+                      : 'border-[#303833] bg-[#121614] hover:border-[#59625b]'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                      selected ? 'bg-[#b84d43] text-white' : 'bg-[#252c28] text-[#9ca49d]'
+                    }`}>
+                      <PetIcon className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className={`text-sm font-medium ${selected ? 'text-[#eeeae0]' : 'text-[#c8c4ba]'}`}>{pet.nameRu}</span>
+                        {selected && <Check className="w-4 h-4 text-[#c95a4f] shrink-0" />}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wider text-[#727b74] mt-0.5">{pet.speciesRu}</div>
+                    </div>
+                  </div>
+                  <p className="mt-2.5 text-[11px] leading-relaxed text-[#89918b]">{pet.descriptionRu}</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Archetypes Modal */}
         {showArchetypes && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-4 md:p-8 overflow-y-auto">
             <div className="max-w-6xl mx-auto rounded-2xl border border-[#4a514c] bg-[#171b19] shadow-2xl p-5 md:p-7">
@@ -175,18 +349,31 @@ export const CharacterCreation: React.FC = () => {
                   <h2 className="text-2xl md:text-3xl font-semibold text-[#eeeae0] mt-1">Готовые персонажи</h2>
                   <p className="text-sm text-[#89918b] mt-1">Выберите героя с готовыми характеристиками, навыками и перком — и сразу начните игру.</p>
                 </div>
-                <button onClick={() => setShowArchetypes(false)} className="px-3 py-2 rounded-lg border border-[#3a433d] text-[#aeb5ae]">Закрыть</button>
+                <button onClick={() => setShowArchetypes(false)} className="px-3 py-2 rounded-lg border border-[#3a433d] text-[#aeb5ae] hover:border-[#677069]">Закрыть</button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                 {ARCHETYPE_PRESETS.map((preset) => (
-                  <div key={preset.id} className="rounded-xl border border-[#303833] bg-[#101412] p-4">
-                    <div className="text-base font-semibold text-[#eeeae0]">{preset.titleRu}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-[#737c75] mt-1">{preset.subtitleRu}</div>
-                    <p className="text-[11px] leading-relaxed text-[#8f9891] mt-3 min-h-[82px]">{preset.descriptionRu}</p>
-                    <div className="mt-3 text-[10px] text-[#aaa9a0]">Предыстория: {BACKGROUND_DEFINITIONS.find((b) => b.id === preset.backgroundId)?.titleRu}</div>
-                    <div className="mt-2 flex flex-wrap gap-1">{preset.taggedSkills.map(id => <span key={id} className="px-2 py-1 rounded bg-[#202622] text-[9px] text-[#b8beb7]">{SKILL_DEFINITIONS.find(s => s.id === id)?.nameRu}</span>)}</div>
-                    <div className="mt-3 text-[10px] text-[#d08a7f]">Перк: {FEAT_DEFINITIONS.find(f => f.id === preset.startingFeat)?.nameRu}</div>
-                    <button onClick={() => startArchetype(preset.id)} className="w-full mt-4 rounded-lg bg-[#a9473f] hover:bg-[#bc5148] text-white text-xs font-semibold py-2.5">НАЧАТЬ ИГРУ</button>
+                  <div key={preset.id} className="rounded-xl border border-[#303833] bg-[#101412] p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="text-base font-semibold text-[#eeeae0]">{preset.titleRu}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-[#737c75] mt-1">{preset.subtitleRu}</div>
+                      <p className="text-[11px] leading-relaxed text-[#8f9891] mt-3 min-h-[70px]">{preset.descriptionRu}</p>
+                      <div className="mt-3 text-[10px] text-[#aaa9a0]">Предыстория: {BACKGROUND_DEFINITIONS.find((b) => b.id === preset.backgroundId)?.titleRu}</div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {preset.taggedSkills.map(id => (
+                          <span key={id} className="px-2 py-1 rounded bg-[#202622] text-[9px] text-[#b8beb7]">
+                            {SKILL_DEFINITIONS.find(s => s.id === id)?.nameRu}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="mt-3 text-[10px] text-[#d08a7f]">Перк: {FEAT_DEFINITIONS.find(f => f.id === preset.startingFeat)?.nameRu}</div>
+                    </div>
+                    <button
+                      onClick={() => startArchetype(preset.id)}
+                      className="w-full mt-4 rounded-lg bg-[#a9473f] hover:bg-[#bc5148] text-white text-xs font-semibold py-2.5 transition-colors"
+                    >
+                      НАЧАТЬ ИГРУ
+                    </button>
                   </div>
                 ))}
               </div>
@@ -200,7 +387,7 @@ export const CharacterCreation: React.FC = () => {
             <div className="flex items-center justify-between gap-4 border-b border-[#303833] pb-4 mb-4">
               <div>
                 <SectionTitle number="04" title="SPECIAL" />
-                <div className="text-xs text-[#788179] mt-1">Распределите базовые очки. Значение 8+ требует серьёзной специализации.</div>
+                <div className="text-xs text-[#788179] mt-1">Распределите 28 очков по шкале Point Buy. Значение 8+ требует специализации.</div>
               </div>
               <div className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold ${remainingPoints >= 0 ? 'border-[#344b3e] bg-[#172019] text-[#8ec59b]' : 'border-[#6a302a] bg-[#271816] text-[#d9776d]'}`}>
                 {remainingPoints} / {MAX_SPECIAL_POINT_POOL}
@@ -224,12 +411,12 @@ export const CharacterCreation: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => updateStat(attr, -1)} disabled={val <= 1} className="w-8 h-8 rounded-lg border border-[#3a433d] bg-[#1b201d] text-[#b9b5ac] hover:border-[#68716a] disabled:opacity-25">−</button>
+                      <button onClick={() => updateStat(attr, -1)} disabled={val <= 1} className="w-8 h-8 rounded-lg border border-[#3a433d] bg-[#1b201d] text-[#b9b5ac] hover:border-[#68716a] disabled:opacity-25 transition-colors">−</button>
                       <div className="w-10 text-center">
                         <div className="text-lg font-semibold text-[#eeeae0]">{val}</div>
                         <div className="text-[9px] text-[#727b74]">{mod >= 0 ? '+' : ''}{mod}</div>
                       </div>
-                      <button onClick={() => updateStat(attr, 1)} disabled={val >= 10 || remainingPoints <= 0} className="w-8 h-8 rounded-lg border border-[#3a433d] bg-[#1b201d] text-[#b9b5ac] hover:border-[#b84d43] disabled:opacity-25">+</button>
+                      <button onClick={() => updateStat(attr, 1)} disabled={val >= 10 || remainingPoints <= 0} className="w-8 h-8 rounded-lg border border-[#3a433d] bg-[#1b201d] text-[#b9b5ac] hover:border-[#b84d43] disabled:opacity-25 transition-colors">+</button>
                     </div>
                   </div>
                 );
@@ -263,7 +450,7 @@ export const CharacterCreation: React.FC = () => {
                 <span className="text-[10px] text-[#7d867f]">{taggedSkills.length}/3</span>
               </div>
               <div className="p-3 rounded-xl bg-[#241a18] border border-[#51312d] mb-3">
-                <div className="text-[10px] uppercase tracking-wider text-[#a85a50]">Зависимость от происхождения</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#a85a50]">Зависимость от предыстории</div>
                 <div className="mt-1 text-xs text-[#c9c0b8]">
                   {background.titleRu} → обязательный навык: <span className="font-semibold text-[#eeeae0]">{backgroundSkillName}</span>
                 </div>
@@ -308,7 +495,9 @@ export const CharacterCreation: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-start gap-2.5">
-                        <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center ${selected ? 'bg-[#b84d43] text-white' : 'bg-[#252c28] text-[#7f8981]'}`}>
+                        <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          selected ? 'bg-[#b84d43] text-white' : 'bg-[#252c28] text-[#7f8981]'
+                        }`}>
                           {FEAT_ICON[feat.id] ?? <Sparkles className="w-4 h-4" />}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -336,7 +525,7 @@ export const CharacterCreation: React.FC = () => {
           <div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-[#6e7770]">Проверка досье</div>
             <div className="mt-1 text-sm text-[#c9c5bb]">
-              {background.titleRu} · {backgroundSkillName} · {taggedSkills.length}/3 навыка · {remainingPoints} очков
+              {name} · {gender === 'female' ? 'Женщина' : 'Мужчина'} · {background.titleRu} · {backgroundSkillName} · {taggedSkills.length}/3 навыка · {remainingPoints} очков
             </div>
           </div>
           <button
