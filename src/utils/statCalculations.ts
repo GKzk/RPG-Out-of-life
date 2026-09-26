@@ -330,7 +330,9 @@ export function calculateSkillValue(
     if (skillId === 'melee' || skillId === 'unarmed') baseVal -= 20;
   }
 
-  return Math.max(1, baseVal);
+  // Canonical skill scale is 0–100. Attribute-derived skill plus investments
+  // can otherwise exceed the progression ceiling once a character is highly specialized.
+  return Math.max(1, Math.min(100, baseVal));
 }
 
 /**
