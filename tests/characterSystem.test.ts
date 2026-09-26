@@ -24,6 +24,7 @@ import {
   resolveBurst,
 } from '../src/utils/characterSystem';
 import { calculateSkillValue } from '../src/utils/statCalculations';
+import { SkillName } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
@@ -184,7 +185,7 @@ assert.deepEqual(SKILL_DEFINITIONS.map((s) => s.id), ["athletics","stealth","sle
 const neutralSkillCharacter = {
   ...auditCharacter,
   taggedSkills: [],
-  skillPointsInvested: Object.fromEntries(ids.map((id) => [id, 0])) as Record<string, number>,
+  skillPointsInvested: Object.fromEntries(ids.map((id) => [id, 0])) as Record<SkillName, number>,
 };
 const neutralSpecial = { STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5 };
 
@@ -192,7 +193,7 @@ for (const skill of SKILL_DEFINITIONS) {
   assert.equal(calculateSkillValue(skill.id, neutralSkillCharacter, neutralSpecial), 25, skill.id + ' neutral baseline');
 }
 
-const taggedCharacter = { ...neutralSkillCharacter, taggedSkills: ['performance'] as const };
+const taggedCharacter = { ...neutralSkillCharacter, taggedSkills: ['performance'] as SkillName[] };
 assert.equal(calculateSkillValue('performance', taggedCharacter, neutralSpecial), 45, 'tag bonus is +20');
 assert.equal(calculateSkillValue('athletics', taggedCharacter, neutralSpecial), 25, 'untagged skill receives no tag bonus');
 
@@ -202,7 +203,7 @@ assert.equal(calculateSkillValue('athletics', taggedCharacter, specialistSpecial
 
 const overCapCharacter = {
   ...neutralSkillCharacter,
-  taggedSkills: ['athletics'] as const,
+  taggedSkills: ['athletics'] as SkillName[],
   skillPointsInvested: { ...neutralSkillCharacter.skillPointsInvested, athletics: 999 },
 };
 assert.equal(calculateSkillValue('athletics', overCapCharacter, specialistSpecial), 100, 'skill value is capped at 100');
