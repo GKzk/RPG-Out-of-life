@@ -1,4 +1,6 @@
-import { SpecialAttribute, SpecialStats } from '../types/game';
+import { ArchetypePreset, Character, SkillName, SpecialAttribute, SpecialStats } from '../types/game';
+import { BACKGROUND_DEFINITIONS } from '../data/backgrounds';
+import { calculateEffectiveSpecial, calculateDerivedStats } from './statCalculations';
 
 export const POINT_BUY_BUDGET = 28;
 export const MIN_SPECIAL = 1;
@@ -185,4 +187,75 @@ export function resolveBurst(input: BurstAttackInput, targetAC: number, lck: num
         : calculateBurstDamage(input.weaponDieRoll, input.weaponFlat, input.attributeMod)
       : 0,
   };
+}
+
+export function createCharacterFromPreset(
+  preset: ArchetypePreset,
+  customName?: string
+): Character {
+  const bg = BACKGROUND_DEFINITIONS.find((b) => b.id === preset.backgroundId);
+  const initialSkillInvestments: Record<SkillName, number> = {
+    athletics: 0,
+    stealth: 0,
+    sleightOfHand: 0,
+    unarmed: 0,
+    melee: 0,
+    firearms: 0,
+    explosives: 0,
+    survival: 0,
+    search: 0,
+    navigation: 0,
+    insight: 0,
+    medicine: 0,
+    mechanics: 0,
+    electronics: 0,
+    science: 0,
+    crafting: 0,
+    persuasion: 0,
+    barter: 0,
+    deception: 0,
+    leadership: 0,
+    animalHandling: 0,
+    performance: 0,
+  };
+
+  const newChar: Character = {
+    name: customName || preset.titleRu,
+    gender: preset.gender,
+    avatarId: preset.avatarId || (preset.gender === 'female' ? 'f1' : 'm1'),
+    backgroundId: preset.backgroundId,
+    background: bg?.titleRu || preset.subtitleRu || 'Без предыстории',
+    petId: preset.petId || 'hound',
+    level: 1,
+    xp: 0,
+    baseSpecial: preset.special,
+    effectiveSpecial: { ...preset.special },
+    taggedSkills: preset.taggedSkills,
+    skillPointsInvested: initialSkillInvestments,
+    feats: preset.startingFeat ? [preset.startingFeat] : [],
+    survival: {
+      hunger: 0,
+      thirst: 0,
+      fatigue: 0,
+      radiation: 0,
+      infection: 0,
+      addictions: {
+        stims: { level: 0, activeDuration: 0, withdrawal: false },
+        psycho: { level: 0, activeDuration: 0, withdrawal: false },
+        buffout: { level: 0, activeDuration: 0, withdrawal: false },
+        alcohol: { level: 0, activeDuration: 0, withdrawal: false },
+      },
+    },
+    currentHp: 50,
+    currentAp: 10,
+    equippedWeaponId: 'pipe_rifle',
+    equippedArmorId: 'vault_suit',
+  };
+
+  const effSpec = calculateEffectiveSpecial(preset.special, newChar.feats, newChar.survival);
+  const derived = calculateDerivedStats(newChar, effSpec, []);
+  newChar.currentHp = derived.maxHp;
+  newChar.currentAp = derived.maxAp;
+
+  return newChar;
 }

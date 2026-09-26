@@ -13,6 +13,7 @@ import {
   Item,
 } from '../types/game';
 import { ARCHETYPE_PRESETS } from '../data/archetypes';
+import { BACKGROUND_DEFINITIONS } from '../data/backgrounds';
 import {
   calculateEffectiveSpecial,
   calculateDerivedStats,
@@ -226,12 +227,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadPresetCharacter = (presetId: string, customName?: string) => {
     const preset = ARCHETYPE_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
+    const bgDef = BACKGROUND_DEFINITIONS.find((b) => b.id === preset.backgroundId);
     createCharacter(
       customName || preset.titleRu,
-      preset.subtitleRu,
+      bgDef?.titleRu || preset.subtitleRu || 'Без предыстории',
       preset.special,
       preset.taggedSkills,
-      preset.startingFeat
+      preset.startingFeat,
+      preset.gender,
+      preset.avatarId || (preset.gender === 'female' ? 'f1' : 'm1'),
+      preset.petId || 'hound',
+      preset.backgroundId
     );
   };
 

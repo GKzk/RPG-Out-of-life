@@ -26,6 +26,8 @@ import {
 import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck } from '../src/utils/statCalculations';
 import { SkillName } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
+import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
+import { createCharacterFromPreset } from '../src/utils/characterSystem';
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
 assert.deepEqual([1,2,3,4,5,6,7,8,9,10].map(getPointBuyCost), [0,1,2,3,4,5,7,10,14,19]);
@@ -261,4 +263,35 @@ assert.deepEqual(maxSkillStillRollDependent, ['critical_failure', 'critical_succ
 assert.throws(() => resolveSkillCheck(5, 50, 50, 0));
 assert.throws(() => resolveSkillCheck(5, 50, 50, 21));
 
-console.log('22-skill mathematical audit: PASS');
+// Regression tests for archetype preset creation and field preservation
+assert.equal(ARCHETYPE_PRESETS.length, 8, '8 archetype presets must be defined');
+
+for (const preset of ARCHETYPE_PRESETS) {
+  const char = createCharacterFromPreset(preset);
+  assert.equal(char.gender, preset.gender, `${preset.id} must preserve gender`);
+  assert.equal(char.backgroundId, preset.backgroundId, `${preset.id} must preserve backgroundId`);
+  assert.deepEqual(char.baseSpecial, preset.special, `${preset.id} must preserve base special`);
+  assert.deepEqual(char.taggedSkills, preset.taggedSkills, `${preset.id} must preserve taggedSkills`);
+  assert.ok(char.feats.includes(preset.startingFeat), `${preset.id} must include startingFeat`);
+  
+  const expectedAvatar = preset.avatarId || (preset.gender === 'female' ? 'f1' : 'm1');
+  assert.equal(char.avatarId, expectedAvatar, `${preset.id} must assign matching avatarId`);
+  
+  const expectedPet = preset.petId || 'hound';
+  assert.equal(char.petId, expectedPet, `${preset.id} must assign matching petId`);
+}
+
+// Explicit spot-checks on specific archetypes
+const vera = createCharacterFromPreset(ARCHETYPE_PRESETS.find((p) => p.id === 'vera_mechanic')!);
+assert.equal(vera.gender, 'female', 'Vera must be female');
+assert.equal(vera.avatarId, 'f1', 'Vera must have female avatar f1');
+assert.equal(vera.backgroundId, 'mechanic', 'Vera must have mechanic backgroundId');
+assert.deepEqual(vera.taggedSkills, ['mechanics', 'electronics', 'science']);
+
+const nikita = createCharacterFromPreset(ARCHETYPE_PRESETS.find((p) => p.id === 'nikita_hunter')!);
+assert.equal(nikita.gender, 'male', 'Nikita must be male');
+assert.equal(nikita.avatarId, 'm1', 'Nikita must have male avatar m1');
+assert.equal(nikita.backgroundId, 'hunter', 'Nikita must have hunter backgroundId');
+assert.deepEqual(nikita.taggedSkills, ['search', 'navigation', 'firearms']);
+
+console.log('22-skill mathematical audit & archetype regression tests: PASS');

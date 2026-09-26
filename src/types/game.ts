@@ -210,4 +210,6 @@ export interface ArchetypePreset {
   startingFeat: string;
   strengthsRu: string[];
   weaknessesRu: string[];
+  avatarId?: string;
+  petId?: string;
 }

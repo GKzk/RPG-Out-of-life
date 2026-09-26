@@ -72,7 +72,7 @@ const AVATAR_OPTIONS: AvatarOption[] = [
 ];
 
 export const CharacterCreation: React.FC = () => {
-  const { createCharacter } = useGame();
+  const { createCharacter, loadPresetCharacter } = useGame();
 
   const [name, setName] = useState('Алекс');
   const [gender, setGender] = useState<'male' | 'female'>('male');
@@ -119,18 +119,7 @@ export const CharacterCreation: React.FC = () => {
   const startArchetype = (presetId: string) => {
     const preset = ARCHETYPE_PRESETS.find((item) => item.id === presetId);
     if (!preset) return;
-    const bg = BACKGROUND_DEFINITIONS.find((item) => item.id === preset.backgroundId);
-    createCharacter(
-      preset.titleRu.split(' — ')[0],
-      bg?.titleRu ?? 'Без предыстории',
-      preset.special,
-      preset.taggedSkills,
-      preset.startingFeat,
-      preset.gender || 'male',
-      preset.gender === 'female' ? 'f1' : 'm1',
-      'hound',
-      preset.backgroundId || 'none'
-    );
+    loadPresetCharacter(presetId, preset.titleRu.split(' — ')[0]);
   };
 
   const updateStat = (attr: SpecialAttribute, delta: number) => {
