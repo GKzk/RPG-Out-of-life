@@ -23,7 +23,7 @@ import {
   applyBurstDefense,
   resolveBurst,
 } from '../src/utils/characterSystem';
-import { calculateSkillValue } from '../src/utils/statCalculations';
+import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck } from '../src/utils/statCalculations';
 import { SkillName } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
 
@@ -182,10 +182,11 @@ assert.equal(SKILL_DEFINITIONS.length, 22, 'canonical skill count');
 assert.equal(new Set(SKILL_DEFINITIONS.map((s) => s.id)).size, 22, 'skill IDs must be unique');
 assert.deepEqual(SKILL_DEFINITIONS.map((s) => s.id), ["athletics","stealth","sleightOfHand","unarmed","melee","firearms","explosives","survival","search","navigation","insight","medicine","mechanics","electronics","science","crafting","persuasion","barter","deception","leadership","animalHandling","performance"], 'skill order must match canonical model');
 
+const skillIds = SKILL_DEFINITIONS.map((skill) => skill.id);
 const neutralSkillCharacter = {
   ...auditCharacter,
   taggedSkills: [],
-  skillPointsInvested: Object.fromEntries(ids.map((id) => [id, 0])) as Record<SkillName, number>,
+  skillPointsInvested: Object.fromEntries(skillIds.map((id) => [id, 0])) as Record<SkillName, number>,
 };
 const neutralSpecial = { STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5 };
 
@@ -214,5 +215,43 @@ for (const skill of SKILL_DEFINITIONS) {
   assert.ok(low >= 1 && low <= 100, skill.id + ' low bound');
   assert.ok(high >= 1 && high <= 100, skill.id + ' high bound');
 }
+
+
+
+// Canonical skill-check formula audit.
+assert.equal(calculateSkillCheckBase(5, 0), 20);
+assert.equal(calculateSkillCheckBase(5, 50), 50);
+assert.equal(calculateSkillCheckBase(10, 100), 100);
+
+const mediumCheck = resolveSkillCheck(5, 50, 50, 10);
+assert.equal(mediumCheck.baseScore, 50);
+assert.equal(mediumCheck.rollModifier, 0);
+assert.equal(mediumCheck.finalScore, 50);
+assert.equal(mediumCheck.margin, 0);
+assert.equal(mediumCheck.outcome, 'success');
+
+const partialCheck = resolveSkillCheck(5, 50, 60, 10);
+assert.equal(partialCheck.margin, -10);
+assert.equal(partialCheck.outcome, 'failure');
+
+const partialBorder = resolveSkillCheck(5, 50, 59, 10);
+assert.equal(partialBorder.margin, -9);
+assert.equal(partialBorder.outcome, 'partial');
+
+const criticalFailure = resolveSkillCheck(5, 0, 50, 1);
+assert.equal(criticalFailure.margin, -29);
+assert.equal(criticalFailure.outcome, 'critical_failure');
+
+const criticalSuccess = resolveSkillCheck(10, 100, 100, 20);
+assert.equal(criticalSuccess.margin, 10);
+assert.equal(criticalSuccess.outcome, 'critical_success');
+
+const maxSkillStillRollDependent = [1, 20].map((d20) =>
+  resolveSkillCheck(10, 100, 100, d20).outcome
+);
+assert.deepEqual(maxSkillStillRollDependent, ['partial', 'critical_success']);
+
+assert.throws(() => resolveSkillCheck(5, 50, 50, 0));
+assert.throws(() => resolveSkillCheck(5, 50, 50, 21));
 
 console.log('22-skill mathematical audit: PASS');
