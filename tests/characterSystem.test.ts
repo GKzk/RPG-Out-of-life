@@ -35,10 +35,13 @@ import {
   calculateSurvivalConsumptionRate,
   calculateBarterPrice,
 } from '../src/utils/characterSystem';
-import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck } from '../src/utils/statCalculations';
-import { SkillName } from '../src/types/game';
+import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial } from '../src/utils/statCalculations';
+import { SkillName, Character, SpecialStats } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
 import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
+import { FEAT_DEFINITIONS } from '../src/data/feats';
+import { BACKGROUND_DEFINITIONS } from '../src/data/backgrounds';
+import { PET_DEFINITIONS } from '../src/data/pets';
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
 assert.deepEqual([1,2,3,4,5,6,7,8,9,10].map(getPointBuyCost), [0,1,2,3,4,5,7,10,14,19]);
@@ -444,5 +447,142 @@ assert.equal(strongAthletics.outcome, 'success');
 const weakAthletics = resolveSkillCheck(2, 10, 50, 10); // Base = 8 + 6 = 14. Margin = -36
 assert.equal(weakAthletics.outcome, 'critical_failure');
 
-console.log('22-skill mathematical audit, archetype & gameplay integration tests: PASS');
+// ---------------------------------------------------------------------------
+// FEATS & BALANCE PASS UNIT TESTS
+// ---------------------------------------------------------------------------
+
+const dummySurvivalNeeds = {
+  hunger: 0,
+  thirst: 0,
+  fatigue: 0,
+  radiation: 0,
+  infection: 0,
+  addictions: {
+    stims: { level: 0, activeDuration: 0, withdrawal: false },
+    psycho: { level: 0, activeDuration: 0, withdrawal: false },
+    buffout: { level: 0, activeDuration: 0, withdrawal: false },
+    alcohol: { level: 0, activeDuration: 0, withdrawal: false },
+  },
+};
+
+const createTestChar = (featId?: string, baseSpecialOverrides?: Partial<SpecialStats>): Character => {
+  const baseSpecial: SpecialStats = {
+    STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5,
+    ...baseSpecialOverrides,
+  };
+  const feats = featId ? [featId] : [];
+  const effSpec = calculateEffectiveSpecial(baseSpecial, feats, dummySurvivalNeeds);
+  return {
+    name: 'Тестер',
+    gender: 'male',
+    avatarId: 'm1',
+    backgroundId: 'none',
+    background: 'Без предыстории',
+    level: 1,
+    xp: 0,
+    baseSpecial,
+    effectiveSpecial: effSpec,
+    taggedSkills: [],
+    skillPointsInvested: {
+      athletics: 0, stealth: 0, sleightOfHand: 0, unarmed: 0, melee: 0, firearms: 0,
+      explosives: 0, survival: 0, search: 0, navigation: 0, insight: 0, medicine: 0,
+      mechanics: 0, electronics: 0, science: 0, crafting: 0, persuasion: 0, barter: 0,
+      deception: 0, leadership: 0, animalHandling: 0, performance: 0,
+    },
+    feats,
+    survival: dummySurvivalNeeds,
+    currentHp: 50,
+    currentAp: 9,
+  };
+};
+
+// 1. One-Eyed
+const charOneEyed = createTestChar('one_eyed');
+assert.equal(charOneEyed.effectiveSpecial.PER, 4, 'One-Eyed must reduce PER by 1');
+const baseSurvival = calculateSkillValue('survival', createTestChar(), createTestChar().effectiveSpecial);
+const oneEyedSurvival = calculateSkillValue('survival', charOneEyed, charOneEyed.effectiveSpecial);
+// One-Eyed gives +5 to survival, while PER decreased by 1 (secondaryAttr for survival, loses 2 points): net +3
+assert.equal(oneEyedSurvival, baseSurvival + 3, 'One-Eyed net survival bonus: +5 skill bonus - 2 from PER loss');
+const oneEyedDef = FEAT_DEFINITIONS.find((f) => f.id === 'one_eyed')!;
+assert.equal(oneEyedDef.rangedAccuracyBonus, 10, 'One-Eyed must grant +10 ranged accuracy');
+
+// 2. Sprinter
+const charSprinter = createTestChar('sprint');
+const baseDerived = calculateDerivedStats(createTestChar(), createTestChar().effectiveSpecial, []);
+const sprinterDerived = calculateDerivedStats(charSprinter, charSprinter.effectiveSpecial, []);
+assert.equal(sprinterDerived.maxAp, baseDerived.maxAp + 1, 'Sprinter must grant +1 AP');
+const sprintDef = FEAT_DEFINITIONS.find((f) => f.id === 'sprint')!;
+assert.equal(sprintDef.needsRateModPct, 20, 'Sprinter must increase fatigue/needs rate by +20%');
+
+// 3. Miniature (Small Frame)
+const charMiniature = createTestChar('miniature');
+assert.equal(charMiniature.effectiveSpecial.AGI, 6, 'Miniature must grant +1 AGI');
+const miniatureDerived = calculateDerivedStats(charMiniature, charMiniature.effectiveSpecial, []);
+// STR 5 -> base carry = 5*6 + 25 = 55. Miniature has carryWeightBonus = -10 -> 45.
+assert.equal(miniatureDerived.carryWeightMax, 45, 'Miniature must reduce max carry weight by 10 kg');
+
+// 4. Sexuality (Sex Appeal)
+const charSexuality = createTestChar('sexuality');
+const basePersuasion = calculateSkillValue('persuasion', createTestChar(), createTestChar().effectiveSpecial);
+const sexPersuasion = calculateSkillValue('persuasion', charSexuality, charSexuality.effectiveSpecial);
+assert.equal(sexPersuasion, basePersuasion + 10, 'Sexuality must grant +10 to Persuasion');
+const baseInsight = calculateSkillValue('insight', createTestChar(), createTestChar().effectiveSpecial);
+const sexInsight = calculateSkillValue('insight', charSexuality, charSexuality.effectiveSpecial);
+assert.equal(sexInsight, baseInsight - 5, 'Sexuality must penalize Insight by -5');
+
+// 5. Pack Rat
+const charPackRat = createTestChar('pack_rat');
+assert.equal(charPackRat.effectiveSpecial.AGI, 4, 'Pack Rat must reduce AGI by 1');
+const packRatDerived = calculateDerivedStats(charPackRat, charPackRat.effectiveSpecial, []);
+assert.equal(packRatDerived.carryWeightMax, 70, 'Pack Rat must grant +15 kg carry weight (55 + 15 = 70)');
+
+// 6. Junkie
+const junkieDef = FEAT_DEFINITIONS.find((f) => f.id === 'junkie')!;
+assert.equal(junkieDef.statModifiers?.AGI, 1, 'Junkie must grant +1 AGI');
+assert.equal(junkieDef.addictionRiskModPct, 30, 'Junkie must increase addiction risk by 30%');
+
+// 7. Workaholic
+const charWorkaholic = createTestChar('workaholic');
+assert.equal(charWorkaholic.effectiveSpecial.INT, 6, 'Workaholic must grant +1 INT');
+const baseMechanics = calculateSkillValue('mechanics', createTestChar(), createTestChar().effectiveSpecial);
+const workMechanics = calculateSkillValue('mechanics', charWorkaholic, charWorkaholic.effectiveSpecial);
+// INT increased by 1 (primaryAttr: +3), plus skillModifiers.mechanics (+10) -> +13 total
+assert.equal(workMechanics, baseMechanics + 13, 'Workaholic must grant +10 skill + 3 attribute = +13 to Mechanics');
+
+// 8. Fast Metabolism
+const metabolismDef = FEAT_DEFINITIONS.find((f) => f.id === 'metabolism')!;
+assert.equal(metabolismDef.healingRateModPct, 20, 'Fast Metabolism must grant +20% healing');
+assert.equal(metabolismDef.needsRateModPct, 20, 'Fast Metabolism must increase hunger/thirst accumulation by 20%');
+
+// 9. Verify Feat bonuses are idempotent (not applied twice)
+const eff1 = calculateEffectiveSpecial(charOneEyed.baseSpecial, charOneEyed.feats, dummySurvivalNeeds);
+const eff2 = calculateEffectiveSpecial(charOneEyed.baseSpecial, charOneEyed.feats, dummySurvivalNeeds);
+assert.deepEqual(eff1, eff2, 'Feat calculation must be idempotent and deterministic');
+
+// 10. Check total Feat count and balance
+assert.equal(FEAT_DEFINITIONS.length, 15, 'Must have exactly 15 defined feats');
+for (const feat of FEAT_DEFINITIONS) {
+  assert.ok(feat.prosRu.length > 0, `${feat.id} must have pros`);
+  assert.ok(feat.consRu.length > 0, `${feat.id} must have cons`);
+  assert.ok(!feat.description.includes('Пустош'), `${feat.id} must not use word 'Пустошь'`);
+}
+
+// 11. Check Backgrounds: no class labels, no Пустошь, correct core skills
+assert.equal(BACKGROUND_DEFINITIONS.length, 8, 'Must have 8 backgrounds');
+for (const bg of BACKGROUND_DEFINITIONS) {
+  assert.ok(!bg.descriptionRu.includes('Пустош'), `${bg.id} must not use word 'Пустошь'`);
+  assert.ok(bg.descriptionRu.length > 30, `${bg.id} must have rich personal backstory`);
+  assert.ok(SKILL_DEFINITIONS.some((s) => s.id === bg.coreSkill), `${bg.id} coreSkill must be valid 22-skill`);
+  assert.ok(FEAT_DEFINITIONS.some((f) => f.id === bg.recommendedFeat), `${bg.id} recommendedFeat must exist in FEAT_DEFINITIONS`);
+}
+
+// 12. Check Pets: all 4 pets have roleNoteRu, subtitleRu, descriptionRu, no Пустошь
+assert.equal(PET_DEFINITIONS.length, 4, 'Must have 4 pets');
+for (const pet of PET_DEFINITIONS) {
+  assert.ok(pet.roleNoteRu && pet.roleNoteRu.length > 10, `${pet.id} must have roleNoteRu`);
+  assert.ok(pet.subtitleRu && pet.subtitleRu.length > 5, `${pet.id} must have subtitleRu`);
+  assert.ok(!pet.descriptionRu.includes('Пустош'), `${pet.id} must not use word 'Пустошь'`);
+}
+
+console.log('22-skill mathematical audit, archetype, feat balance & gameplay integration tests: PASS');
 

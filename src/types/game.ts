@@ -52,6 +52,8 @@ export interface FeatDefinition {
   needsRateModPct?: number; // e.g. -30% hunger/thirst rate
   healingRateModPct?: number;
   addictionRiskModPct?: number;
+  skillModifiers?: Partial<Record<SkillName, number>>;
+  diseaseResistBonus?: number;
 }
 
 export interface SurvivalNeeds {

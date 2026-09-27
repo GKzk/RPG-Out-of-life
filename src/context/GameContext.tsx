@@ -259,14 +259,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGameTimeHours(newHours);
     setGameDay(newDay);
 
-    // Update survival scales using Survival skill (governing END/PER)
+    // Update survival scales using Survival skill (governing END/PER) and Feat modifiers
     const survSkill = calculateSkillValue('survival', character, effectiveSpecial);
-    const survivalistFeat = character.feats.includes('wasteland_survivalist');
-    const hungerIncrease = calculateSurvivalConsumptionRate(hours * 3, survSkill, survivalistFeat);
-    const thirstIncrease = calculateSurvivalConsumptionRate(hours * 4.5, survSkill, survivalistFeat);
+    let featNeedsMult = 1.0;
+    character.feats.forEach((featId) => {
+      const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
+      if (feat?.needsRateModPct) {
+        featNeedsMult += feat.needsRateModPct / 100;
+      }
+    });
+    const hungerIncrease = calculateSurvivalConsumptionRate(hours * 3 * featNeedsMult, survSkill, false);
+    const thirstIncrease = calculateSurvivalConsumptionRate(hours * 4.5 * featNeedsMult, survSkill, false);
     const newHunger = Math.min(100, Math.max(0, character.survival.hunger + hungerIncrease));
     const newThirst = Math.min(100, Math.max(0, character.survival.thirst + thirstIncrease));
-    const newFatigue = Math.min(100, Math.max(0, character.survival.fatigue + hours * 3));
+    const newFatigue = Math.min(100, Math.max(0, character.survival.fatigue + hours * 3 * featNeedsMult));
 
     // Update chem duration / withdrawal
     const newAddictions = { ...character.survival.addictions };
@@ -582,8 +588,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (data.hpHeal) {
       const medSkill = calculateSkillValue('medicine', character, effectiveSpecial);
-      const healMult = character.feats.includes('wasteland_survivalist') ? 0.7 : 1.0;
-      const totalHeal = Math.floor(data.hpHeal * (1 + medSkill / 100) * healMult);
+      let healMult = 1.0;
+      character.feats.forEach((featId) => {
+        const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
+        if (feat?.healingRateModPct) {
+          healMult += feat.healingRateModPct / 100;
+        }
+      });
+      const totalHeal = Math.max(1, Math.floor(data.hpHeal * (1 + medSkill / 100) * healMult));
       newHp = Math.min(derivedStats.maxHp, newHp + totalHeal);
       addLogMessage(`Использован ${item.nameRu}: восстановлено ${totalHeal} HP.`, 'heal');
     }
@@ -611,11 +623,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Handle Chem Effect & Addiction Risk
     if (data.chemType) {
       const chem = data.chemType;
-      const duration = data.chemDurationTurns || 4;
+      let duration = data.chemDurationTurns || 4;
       let addictChance = data.addictionChance || 20;
 
-      if (character.feats.includes('chem_fiend')) {
-        addictChance += 50;
+      character.feats.forEach((featId) => {
+        const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
+        if (feat?.addictionRiskModPct) {
+          addictChance += feat.addictionRiskModPct;
+        }
+      });
+
+      if (character.feats.includes('junkie')) {
+        duration = Math.round(duration * 1.25);
       }
 
       newAddictions[chem] = {
@@ -747,10 +766,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const skillVal = calculateSkillValue(weaponData.skillReq, character, effectiveSpecial);
 
     // Canonical attack structure: D20 + attribute modifier + skill bonus + weapon accuracy.
-    // Current catalog has no explicit weapon accuracy, therefore the adapter uses 0.
+    let featRangedAccuracy = 0;
+    if (weaponData.range !== 'melee') {
+      character.feats.forEach((featId) => {
+        const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
+        if (feat?.rangedAccuracyBonus) {
+          featRangedAccuracy += feat.rangedAccuracyBonus;
+        }
+      });
+    }
+
     const attackMod = getAttributeMod(effectiveSpecial.PER);
     const skillBonus = skillVal;
-    const weaponAccuracy = 0;
+    const weaponAccuracy = featRangedAccuracy;
     const d20 = rollD20();
     const attackTotal = d20 + attackMod + skillBonus + weaponAccuracy;
 

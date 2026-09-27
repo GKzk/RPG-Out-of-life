@@ -172,6 +172,7 @@ export function calculateDerivedStats(
   let featCritBonus = 0;
   let featCarryBonus = 0;
   let featRadBonus = 0;
+  let featDiseaseBonus = 0;
 
   character.feats.forEach((featId) => {
     const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
@@ -181,6 +182,7 @@ export function calculateDerivedStats(
       if (feat.critBonus) featCritBonus += feat.critBonus;
       if (feat.carryWeightBonus) featCarryBonus += feat.carryWeightBonus;
       if (feat.radResistBonus) featRadBonus += feat.radResistBonus;
+      if (feat.diseaseResistBonus) featDiseaseBonus += feat.diseaseResistBonus;
     }
   });
 
@@ -216,7 +218,7 @@ export function calculateDerivedStats(
     critChance = 0; // cannot deal crits
   }
 
-  // Max Carry Weight = (STR * 15) + 30 + featCarryBonus
+  // Max Carry Weight = (STR * 6) + 25 + featCarryBonus
   const carryWeightMax = STR * 6 + 25 + featCarryBonus;
 
   // Current weight calculation
@@ -229,7 +231,7 @@ export function calculateDerivedStats(
   const radResist = Math.min(90, END * 5 + featRadBonus);
 
   // Disease Resistance
-  const diseaseResist = Math.min(90, END * 4 + (character.survival.hunger < 20 ? 10 : 0));
+  const diseaseResist = Math.min(90, END * 4 + featDiseaseBonus + (character.survival.hunger < 20 ? 10 : 0));
 
   return {
     maxHp,
@@ -271,7 +273,15 @@ export function calculateSkillValue(
   const invested = character.skillPointsInvested[skillId] || 0;
   baseVal += invested;
 
-  // Feat modifiers
+  // Feat skill modifiers
+  character.feats.forEach((featId) => {
+    const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
+    if (feat?.skillModifiers && feat.skillModifiers[skillId] !== undefined) {
+      baseVal += feat.skillModifiers[skillId]!;
+    }
+  });
+
+  // Legacy fallback
   if (character.feats.includes('eloquent_diplomat')) {
     if (skillId === 'persuasion' || skillId === 'barter') baseVal += 25;
     if (skillId === 'melee' || skillId === 'unarmed') baseVal -= 20;
