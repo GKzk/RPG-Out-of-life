@@ -47,7 +47,7 @@ const SECTOR_LOCATIONS: SectorLocation[] = [
 ];
 
 export const WastelandExplorer: React.FC = () => {
-  const { scavengeRuins, startCombatEncounter, passTime } = useGame();
+  const { scavengeRuins, startCombatEncounter, travelBetweenSectors, clearSectorObstacle } = useGame();
   const [selectedLocation, setSelectedLocation] = useState<SectorLocation>(SECTOR_LOCATIONS[0]);
 
   return (
@@ -131,7 +131,18 @@ export const WastelandExplorer: React.FC = () => {
               >
                 <div className="flex items-center gap-2">
                   <Search className="w-4 h-4" />
-                  <span>НАЧАТЬ ПОИСК ПРИПАСОВ В СЕКТОРЕ (2 ч.)</span>
+                  <span>НАЧАТЬ ПОИСК ПРИПАСОВ (Поиск и Скрытность)</span>
+                </div>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={clearSectorObstacle}
+                className="w-full bg-neutral-950 hover:bg-neutral-800 border border-amber-500/40 text-amber-200 font-bold py-3 px-4 rounded text-xs flex items-center justify-between transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-amber-400" />
+                  <span>РАСЧИСТИТЬ ЗАВАЛ / ОБВАЛ (Атлетика)</span>
                 </div>
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -148,12 +159,12 @@ export const WastelandExplorer: React.FC = () => {
               </button>
 
               <button
-                onClick={() => passTime(3, 'Переход между секторами')}
+                onClick={() => travelBetweenSectors(selectedLocation.nameRu)}
                 className="w-full bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 font-bold py-3 px-4 rounded text-xs flex items-center justify-between transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <Compass className="w-4 h-4 text-amber-400" />
-                  <span>СМЕНИТЬ ДИСЛОКАЦИЮ И СЕКТОР (3 ч.)</span>
+                  <span>СМЕНИТЬ ДИСЛОКАЦИЮ И СЕКТОР (Навигация)</span>
                 </div>
                 <ChevronRight className="w-4 h-4" />
               </button>

@@ -8,8 +8,73 @@ export interface CompanionRuntimeState {
   stabilizationAttempts: number;
 }
 
-export function resolveCompanionDamage(currentHp: number, maxHp: number, damage: number): CompanionRuntimeState {
-  const finalHp = currentHp - Math.max(0, damage);
+export function calculateLeadershipDefenseBonus(leadershipSkill: number): number {
+  return Math.max(0, Math.min(4, Math.floor(leadershipSkill / 25)));
+}
+
+export function calculateCompanionSupportEffectiveness(
+  baseDamage: number,
+  leadershipSkill: number
+): number {
+  const clamped = Math.max(0, Math.min(100, leadershipSkill));
+  const bonus = Math.floor(baseDamage * (clamped / 100) * 0.3);
+  return baseDamage + bonus;
+}
+
+export interface PetHandlingBonus {
+  searchBonus: number;
+  stealthBonus: number;
+  combatDamageBonus: number;
+  foodPreservationPct: number;
+}
+
+export function getPetHandlingBonus(
+  petId: string | undefined | null,
+  animalHandlingSkill: number
+): PetHandlingBonus {
+  if (!petId || petId === 'none') {
+    return { searchBonus: 0, stealthBonus: 0, combatDamageBonus: 0, foodPreservationPct: 0 };
+  }
+
+  const skillFactor = Math.max(0, Math.min(100, animalHandlingSkill));
+  const masteryBonus = Math.floor(skillFactor / 25);
+
+  switch (petId) {
+    case 'hound':
+      return {
+        searchBonus: 2 + masteryBonus * 2,
+        stealthBonus: 3 + masteryBonus * 2,
+        combatDamageBonus: 1 + masteryBonus,
+        foodPreservationPct: 0,
+      };
+    case 'cat':
+      return {
+        searchBonus: 0,
+        stealthBonus: 4 + masteryBonus * 3,
+        combatDamageBonus: 0,
+        foodPreservationPct: 5 + masteryBonus * 5,
+      };
+    case 'crow':
+      return {
+        searchBonus: 5 + masteryBonus * 3,
+        stealthBonus: 2 + masteryBonus,
+        combatDamageBonus: 0,
+        foodPreservationPct: 0,
+      };
+    default:
+      return { searchBonus: 0, stealthBonus: 0, combatDamageBonus: 0, foodPreservationPct: 0 };
+  }
+}
+
+export function resolveCompanionDamage(
+  currentHp: number,
+  maxHp: number,
+  damage: number,
+  leadershipSkill: number = 0
+): CompanionRuntimeState {
+  const mitigation = calculateLeadershipDefenseBonus(leadershipSkill);
+  const effectiveDamage = Math.max(0, damage - mitigation);
+  const finalHp = currentHp - effectiveDamage;
   if (finalHp <= -maxHp) {
     return { state: 'DEAD', currentHp: finalHp, maxHp, downedRounds: 0, stabilizationAttempts: 0 };
   }

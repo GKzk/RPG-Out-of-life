@@ -19,13 +19,16 @@ import {
   calculateDerivedStats,
   calculateSkillValue,
   rollD20,
+  resolveSkillCheck,
 } from '../utils/statCalculations';
 import {
   getAttributeMod,
   calculateMeleeDamage,
   calculateCritMeleeDamage,
   applyDamageMitigation,
+  calculateSurvivalConsumptionRate,
 } from '../utils/characterSystem';
+import { getPetHandlingBonus } from '../utils/companionSystem';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
 import { ENEMY_DATABASE } from '../data/enemies';
@@ -65,6 +68,8 @@ interface GameContextType {
   passTime: (hours: number, activityNameRu?: string) => void;
   restAndSleep: (hours: number) => void;
   scavengeRuins: () => void;
+  travelBetweenSectors: (targetSectorName?: string) => void;
+  clearSectorObstacle: () => void;
 
   // Combat Actions
   startCombatEncounter: (enemyTemplate?: Enemy) => void;
@@ -254,12 +259,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGameTimeHours(newHours);
     setGameDay(newDay);
 
-    // Update survival scales
+    // Update survival scales using Survival skill (governing END/PER)
+    const survSkill = calculateSkillValue('survival', character, effectiveSpecial);
     const survivalistFeat = character.feats.includes('wasteland_survivalist');
-    const rateMultiplier = survivalistFeat ? 0.65 : 1.0;
-
-    const newHunger = Math.min(100, Math.max(0, character.survival.hunger + hours * 3 * rateMultiplier));
-    const newThirst = Math.min(100, Math.max(0, character.survival.thirst + hours * 4.5 * rateMultiplier));
+    const hungerIncrease = calculateSurvivalConsumptionRate(hours * 3, survSkill, survivalistFeat);
+    const thirstIncrease = calculateSurvivalConsumptionRate(hours * 4.5, survSkill, survivalistFeat);
+    const newHunger = Math.min(100, Math.max(0, character.survival.hunger + hungerIncrease));
+    const newThirst = Math.min(100, Math.max(0, character.survival.thirst + thirstIncrease));
     const newFatigue = Math.min(100, Math.max(0, character.survival.fatigue + hours * 3));
 
     // Update chem duration / withdrawal
@@ -301,9 +307,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!character) return;
     passTime(hours, `Сон на стоянке (${hours} ч.)`);
 
-    // Sleep reduces fatigue and recovers HP if fed
+    // Sleep reduces fatigue and recovers HP if fed; Survival skill improves field camp recovery
+    const survSkill = calculateSkillValue('survival', character, effectiveSpecial);
+    const campBonus = Math.floor(survSkill / 15);
     const isFedAndHydrated = character.survival.hunger < 50 && character.survival.thirst < 50;
-    const hpRecovery = isFedAndHydrated ? hours * 6 : hours * 2;
+    const hpRecovery = (isFedAndHydrated ? hours * 6 : hours * 2) + campBonus;
 
     setCharacter((prev) => {
       if (!prev) return null;
@@ -318,35 +326,201 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     });
 
-    addLogMessage(`Вы восстановили ${hpRecovery} HP и снизили усталость.`, 'heal');
+    addLogMessage(`Вы восстановили ${hpRecovery} HP и снизили усталость на стоянке.`, 'heal');
   };
 
-  // Scavenge ruins action
+  // Scavenge ruins action: SEARCH replaces SURVIVAL, STEALTH resolves ambush risk
   const scavengeRuins = () => {
     if (!character) return;
     passTime(2, 'Поиск припасов в руинах');
 
-    // Scavenge chance based on PER and Survival skill
-    const survSkill = calculateSkillValue('survival', character, effectiveSpecial);
-    const roll = rollD20() + Math.floor(survSkill / 10);
+    const searchSkill = calculateSkillValue('search', character, effectiveSpecial);
+    const animalSkill = calculateSkillValue('animalHandling', character, effectiveSpecial);
+    const petBonus = getPetHandlingBonus(character.petId, animalSkill);
 
-    addLogMessage(`Поиск в руинах: бросок d20+бонус = ${roll}...`, 'info');
+    // Canonical search check: governing attribute PER, DC 45
+    const searchRoll = rollD20();
+    const searchCheck = resolveSkillCheck(
+      effectiveSpecial.PER,
+      searchSkill,
+      45,
+      searchRoll,
+      petBonus.searchBonus
+    );
 
-    if (roll >= 10) {
-      // Found loot
-      const possibleLoot = ['purified_water', 'dirty_water', 'canned_cram', 'mutant_meat', 'stimpak', 'radaway'];
+    const possibleLoot = ['purified_water', 'dirty_water', 'canned_cram', 'mutant_meat', 'stimpak', 'radaway'];
+    const petNameRu = character.petId === 'hound' ? 'Байкал' : character.petId === 'crow' ? 'Каркун' : character.petId === 'cat' ? 'Барсик' : '';
+
+    if (searchCheck.outcome === 'critical_success') {
+      const loot1 = ITEM_DATABASE.find((i) => i.id === 'stimpak')!;
+      const loot2 = ITEM_DATABASE.find((i) => i.id === 'canned_cram')!;
+      addItemToInventory(loot1, 1);
+      addItemToInventory(loot2, 1);
+      addLogMessage(
+        `[ПОИСК: КРИТИЧЕСКИЙ УСПЕХ] d20=${searchRoll} (Margin +${searchCheck.margin})! ` +
+        `${petBonus.searchBonus > 0 ? `Питомец ${petNameRu} помог учуять схрон: ` : ''}` +
+        `найден тайник с припасами: ${loot1.nameRu} и ${loot2.nameRu}!`,
+        'heal'
+      );
+    } else if (searchCheck.outcome === 'success') {
       const lootId = possibleLoot[Math.floor(Math.random() * possibleLoot.length)];
       const item = ITEM_DATABASE.find((i) => i.id === lootId)!;
       addItemToInventory(item, 1);
-      addLogMessage(`[УСПЕХ] В развалинах обнаружен предмет: ${item.nameRu}!`, 'heal');
+      addLogMessage(
+        `[ПОИСК: УСПЕХ] d20=${searchRoll} (Margin +${searchCheck.margin})! Обнаружен предмет: ${item.nameRu}.`,
+        'heal'
+      );
+    } else if (searchCheck.outcome === 'partial') {
+      const item = ITEM_DATABASE.find((i) => i.id === 'dirty_water')!;
+      addItemToInventory(item, 1);
+      addLogMessage(
+        `[ПОИСК: ЧАСТИЧНЫЙ УСПЕХ] d20=${searchRoll} (Margin ${searchCheck.margin}). Сектор почти пуст, удалось найти только: ${item.nameRu}.`,
+        'info'
+      );
+    } else if (searchCheck.outcome === 'failure') {
+      addLogMessage(
+        `[ПОИСК: НЕУДАЧА] d20=${searchRoll} (Margin ${searchCheck.margin}). Руины оказались разграблены до вас.`,
+        'info'
+      );
     } else {
-      addLogMessage(`[НЕУДАЧА] Руины оказались разграблены до вас.`, 'info');
+      addLogMessage(
+        `[ПОИСК: КРИТИЧЕСКИЙ ПРОВАЛ] d20=${searchRoll} (Margin ${searchCheck.margin})! Обрушение хлама при поисках — ценностей не найдено, поднят шум!`,
+        'hazard'
+      );
     }
 
-    // 30% chance for hostile encounter during scavenging!
-    if (Math.random() < 0.35) {
-      addLogMessage(`[ОПАСНОСТЬ] Из тени на вас нападает враг!`, 'hazard');
+    // Stealth check against hostile ambush
+    const stealthSkill = calculateSkillValue('stealth', character, effectiveSpecial);
+    const stealthRoll = rollD20();
+    const stealthCheck = resolveSkillCheck(
+      effectiveSpecial.AGI,
+      stealthSkill,
+      50,
+      stealthRoll,
+      petBonus.stealthBonus
+    );
+
+    if (stealthCheck.outcome === 'critical_success') {
+      addLogMessage(
+        `[СКРЫТНОСТЬ: КРИТИЧЕСКИЙ УСПЕХ] d20=${stealthRoll} (Margin +${stealthCheck.margin})! ` +
+        `Вы бесшумно проскользнули мимо логова врагов, оставшись незамеченным.`,
+        'heal'
+      );
+    } else if (stealthCheck.outcome === 'success') {
+      addLogMessage(
+        `[СКРЫТНОСТЬ: УСПЕХ] d20=${stealthRoll} (Margin +${stealthCheck.margin}). ` +
+        `Вы вовремя заметили патруль рейдеров и укрылись в тени развалин. Засада предотвращена.`,
+        'info'
+      );
+    } else if (stealthCheck.outcome === 'partial') {
+      addLogMessage(
+        `[СКРЫТНОСТЬ: ЧАСТИЧНЫЙ УСПЕХ] d20=${stealthRoll} (Margin ${stealthCheck.margin}). ` +
+        `Вы услышали шаги врага за секунду до удара и успели занять оборону!`,
+        'hazard'
+      );
       startCombatEncounter();
+    } else {
+      addLogMessage(
+        `[СКРЫТНОСТЬ: ПРОВАЛ] d20=${stealthRoll} (Margin ${stealthCheck.margin})! ` +
+        `Шорох под ногой выдал вас — из тени нападает враг!`,
+        'hazard'
+      );
+      startCombatEncounter();
+    }
+  };
+
+  // Navigation: travel between sectors
+  const travelBetweenSectors = (targetSectorName?: string) => {
+    if (!character) return;
+    const navSkill = calculateSkillValue('navigation', character, effectiveSpecial);
+    const navRoll = rollD20();
+    const navCheck = resolveSkillCheck(effectiveSpecial.PER, navSkill, 45, navRoll);
+
+    let hoursTaken = 3;
+    if (navCheck.outcome === 'critical_success') {
+      hoursTaken = 1;
+      addLogMessage(
+        `[НАВИГАЦИЯ: КРИТИЧЕСКИЙ УСПЕХ] d20=${navRoll} (Margin +${navCheck.margin})! ` +
+        `Найден идеальный довоенный тоннель. Переход занял всего 1 час!`,
+        'heal'
+      );
+    } else if (navCheck.outcome === 'success') {
+      hoursTaken = 2;
+      addLogMessage(
+        `[НАВИГАЦИЯ: УСПЕХ] d20=${navRoll} (Margin +${navCheck.margin})! ` +
+        `Выбрана короткая безопасная тропа. Переход занял 2 часа.`,
+        'heal'
+      );
+    } else if (navCheck.outcome === 'partial') {
+      hoursTaken = 3;
+      addLogMessage(
+        `[НАВИГАЦИЯ: ЧАСТИЧНЫЙ УСПЕХ] d20=${navRoll} (Margin ${navCheck.margin}). ` +
+        `Стандартный маршрут по разрушенным улицам занял 3 часа.`,
+        'info'
+      );
+    } else if (navCheck.outcome === 'failure') {
+      hoursTaken = 4;
+      addLogMessage(
+        `[НАВИГАЦИЯ: НЕУДАЧА] d20=${navRoll} (Margin ${navCheck.margin}). ` +
+        `Тропа оказалась завалена, блуждание по пустоши заняло 4 часа.`,
+        'hazard'
+      );
+    } else {
+      hoursTaken = 5;
+      addLogMessage(
+        `[НАВИГАЦИЯ: КРИТИЧЕСКИЙ ПРОВАЛ] d20=${navRoll} (Margin ${navCheck.margin})! ` +
+        `Пыльная буря стёрла ориентиры. Вы кружили по руинам 5 часов!`,
+        'hazard'
+      );
+    }
+
+    passTime(hoursTaken, `Смена сектора${targetSectorName ? `: ${targetSectorName}` : ''}`);
+  };
+
+  // Athletics: clear physical obstacle / rubble in sector
+  const clearSectorObstacle = () => {
+    if (!character) return;
+    const athSkill = calculateSkillValue('athletics', character, effectiveSpecial);
+    const athRoll = rollD20();
+    const athCheck = resolveSkillCheck(effectiveSpecial.STR, athSkill, 50, athRoll);
+
+    if (athCheck.outcome === 'critical_success') {
+      addLogMessage(
+        `[АТЛЕТИКА: КРИТИЧЕСКИЙ УСПЕХ] d20=${athRoll} (Margin +${athCheck.margin})! ` +
+        `Вы с лёгкостью отжали бетонную плиту! Проход открыт за 1 час, спасены довоенные материалы.`,
+        'heal'
+      );
+      addItemToInventory(ITEM_DATABASE.find((i) => i.id === 'canned_cram')!, 1);
+      passTime(1, 'Расчистка завала (Атлетика)');
+    } else if (athCheck.outcome === 'success') {
+      addLogMessage(
+        `[АТЛЕТИКА: УСПЕХ] d20=${athRoll} (Margin +${athCheck.margin})! ` +
+        `Физическая мощь позволила расчистить завал и открыть безопасный проход за 1 час.`,
+        'heal'
+      );
+      passTime(1, 'Расчистка завала (Атлетика)');
+    } else if (athCheck.outcome === 'partial') {
+      addLogMessage(
+        `[АТЛЕТИКА: ЧАСТИЧНЫЙ УСПЕХ] d20=${athRoll} (Margin ${athCheck.margin}). ` +
+        `Завал поддался с большим трудом, потребовалось 2 часа тяжёлого труда.`,
+        'info'
+      );
+      passTime(2, 'Тяжёлая расчистка завала');
+    } else if (athCheck.outcome === 'failure') {
+      addLogMessage(
+        `[АТЛЕТИКА: НЕУДАЧА] d20=${athRoll} (Margin ${athCheck.margin}). ` +
+        `Балки заклинило. Пришлось потратить 3 часа на поиск обходных путей.`,
+        'hazard'
+      );
+      passTime(3, 'Поиск обхода завала');
+    } else {
+      addLogMessage(
+        `[АТЛЕТИКА: КРИТИЧЕСКИЙ ПРОВАЛ] d20=${athRoll} (Margin ${athCheck.margin})! ` +
+        `Обрушение арматуры! Вы потратили 3 часа и получили травму (-10 HP).`,
+        'hazard'
+      );
+      setCharacter((prev) => (prev ? { ...prev, currentHp: Math.max(1, prev.currentHp - 10) } : null));
+      passTime(3, 'Обрушение завала');
     }
   };
 
@@ -625,6 +799,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       rawDamage = maxWeaponDice + rollWeaponDice + weaponFlat + attributeMod;
     }
 
+    // Pet assistance in combat (if pet is hound and animalHandling is trained)
+    const animalSkill = calculateSkillValue('animalHandling', character, effectiveSpecial);
+    const petBonus = getPetHandlingBonus(character.petId, animalSkill);
+    if (petBonus.combatDamageBonus > 0) {
+      rawDamage += petBonus.combatDamageBonus;
+      addLogMessage(`Пёс Байкал атаковал врага (+${petBonus.combatDamageBonus} урона)!`, 'hit');
+    }
+
     rawDamage = Math.max(1, rawDamage);
 
     // Enemy armor remains a legacy numeric field until enemy DT/DR is explicitly designed.
@@ -816,6 +998,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         passTime,
         restAndSleep,
         scavengeRuins,
+        travelBetweenSectors,
+        clearSectorObstacle,
         startCombatEncounter,
         endCombat,
         performPlayerAttack,

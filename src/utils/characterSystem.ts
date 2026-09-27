@@ -2,7 +2,8 @@ import { ArchetypePreset, Character, SkillName, SpecialAttribute, SpecialStats }
 import { BACKGROUND_DEFINITIONS } from '../data/backgrounds';
 import { calculateEffectiveSpecial, calculateDerivedStats } from './statCalculations';
 
-export const POINT_BUY_BUDGET = 28;
+export const POINT_BUY_BUDGET = 40;
+export const TOTAL_SPECIAL_POINTS = 40;
 export const MIN_SPECIAL = 1;
 export const MAX_SPECIAL = 10;
 
@@ -10,25 +11,43 @@ export function getAttributeMod(value: number): number {
   return value - 5;
 }
 
+const POINT_BUY_COSTS: Record<number, number> = {
+  1: 0,
+  2: 1,
+  3: 2,
+  4: 3,
+  5: 4,
+  6: 5,
+  7: 7,
+  8: 10,
+  9: 14,
+  10: 19,
+};
+
 export function getPointBuyCost(value: number): number {
   if (value < MIN_SPECIAL || value > MAX_SPECIAL) {
     throw new Error(`SPECIAL must be in [${MIN_SPECIAL}, ${MAX_SPECIAL}]`);
   }
-  if (value === 1) return 0;
-  if (value <= 6) return value - 1;
-  if (value === 7) return 7;
-  if (value === 8) return 10;
-  if (value === 9) return 14;
-  return 19;
+  return POINT_BUY_COSTS[value];
 }
 
 export function getTotalPointBuyCost(special: SpecialStats): number {
-  return (Object.keys(special) as SpecialAttribute[])
-    .reduce((sum, attr) => sum + getPointBuyCost(special[attr]), 0);
+  return (
+    special.STR +
+    special.PER +
+    special.END +
+    special.CHA +
+    special.INT +
+    special.AGI +
+    special.LCK
+  );
 }
 
 export function isValidPointBuy(special: SpecialStats): boolean {
-  return getTotalPointBuyCost(special) <= POINT_BUY_BUDGET;
+  const withinBounds = (Object.keys(special) as SpecialAttribute[]).every(
+    (attr) => special[attr] >= MIN_SPECIAL && special[attr] <= MAX_SPECIAL
+  );
+  return withinBounds && getTotalPointBuyCost(special) === TOTAL_SPECIAL_POINTS;
 }
 
 export function calculateMeleeDamage(rollWeaponDice: number, str: number): number {
@@ -258,4 +277,35 @@ export function createCharacterFromPreset(
   newChar.currentAp = derived.maxAp;
 
   return newChar;
+}
+
+export function calculateSurvivalConsumptionRate(
+  baseRatePerHour: number,
+  survivalSkill: number,
+  hasSurvivalistFeat: boolean
+): number {
+  const clampedSkill = Math.max(0, Math.min(100, survivalSkill));
+  // Survival provides up to 30% reduction to hunger/thirst accumulation
+  const skillMultiplier = Math.max(0.70, 1.0 - (clampedSkill / 100) * 0.30);
+  const featMultiplier = hasSurvivalistFeat ? 0.65 : 1.0;
+  return baseRatePerHour * skillMultiplier * featMultiplier;
+}
+
+export function calculateBarterPrice(
+  baseValue: number,
+  barterSkill: number,
+  transaction: 'buy' | 'sell'
+): number {
+  if (baseValue <= 0) return 1;
+  const clampedSkill = Math.max(0, Math.min(100, barterSkill));
+
+  if (transaction === 'buy') {
+    // Buy price markup: starts at 150% at 0 Barter, drops to 110% at 100 Barter
+    const markupPct = 150 - Math.round((clampedSkill / 100) * 40);
+    return Math.max(1, Math.round((baseValue * markupPct) / 100));
+  } else {
+    // Sell price markdown: starts at 35% at 0 Barter, rises to 70% at 100 Barter
+    const markdownPct = 35 + Math.round((clampedSkill / 100) * 35);
+    return Math.max(1, Math.round((baseValue * markdownPct) / 100));
+  }
 }

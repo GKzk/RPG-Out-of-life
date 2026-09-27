@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import { ITEM_DATABASE } from '../src/data/items';
 import { calculateDerivedStats } from '../src/utils/statCalculations';
-import { resolveCompanionDamage, stabilizeCompanion, advanceCompanionBleedout, resolveStabilizedMedicalProcedure, canAttemptStabilizedProcedure } from '../src/utils/companionSystem';
+import {
+  resolveCompanionDamage,
+  stabilizeCompanion,
+  advanceCompanionBleedout,
+  resolveStabilizedMedicalProcedure,
+  canAttemptStabilizedProcedure,
+  calculateLeadershipDefenseBonus,
+  calculateCompanionSupportEffectiveness,
+  getPetHandlingBonus,
+} from '../src/utils/companionSystem';
 import {
   getAttributeMod,
   getPointBuyCost,
@@ -22,12 +31,14 @@ import {
   calculateCritBurstDamage,
   applyBurstDefense,
   resolveBurst,
+  createCharacterFromPreset,
+  calculateSurvivalConsumptionRate,
+  calculateBarterPrice,
 } from '../src/utils/characterSystem';
 import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck } from '../src/utils/statCalculations';
 import { SkillName } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
 import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
-import { createCharacterFromPreset } from '../src/utils/characterSystem';
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
 assert.deepEqual([1,2,3,4,5,6,7,8,9,10].map(getPointBuyCost), [0,1,2,3,4,5,7,10,14,19]);
@@ -266,6 +277,22 @@ assert.throws(() => resolveSkillCheck(5, 50, 50, 21));
 // Regression tests for archetype preset creation and field preservation
 assert.equal(ARCHETYPE_PRESETS.length, 8, '8 archetype presets must be defined');
 
+// Verify 22 skills metadata completeness
+assert.equal(SKILL_DEFINITIONS.length, 22, 'Must have exactly 22 skill definitions');
+for (const skill of SKILL_DEFINITIONS) {
+  assert.ok(skill.nameRu && skill.nameRu.trim().length > 0, `Skill ${skill.id} must have non-empty nameRu`);
+  assert.ok(skill.description && skill.description.trim().length > 10, `Skill ${skill.id} must have detailed description`);
+  assert.ok(['STR', 'PER', 'END', 'CHA', 'INT', 'AGI', 'LCK'].includes(skill.primaryAttr), `Skill ${skill.id} valid primaryAttr`);
+}
+
+// Verify natural names for archetypes (no 'Имя — Профессия' format)
+for (const preset of ARCHETYPE_PRESETS) {
+  assert.ok(!preset.titleRu.includes(' — ') && !preset.titleRu.includes(' - '), `${preset.id} titleRu must be a natural person name without class dash: ${preset.titleRu}`);
+  assert.ok(preset.titleRu.split(' ').length >= 2, `${preset.id} titleRu should have full name/patronymic: ${preset.titleRu}`);
+  assert.ok(preset.subtitleRu && preset.subtitleRu.trim().length > 0, `${preset.id} must retain role in subtitleRu`);
+  assert.ok(preset.descriptionRu && preset.descriptionRu.trim().length > 20, `${preset.id} must retain detailed character biography`);
+}
+
 for (const preset of ARCHETYPE_PRESETS) {
   const char = createCharacterFromPreset(preset);
   assert.equal(char.gender, preset.gender, `${preset.id} must preserve gender`);
@@ -294,4 +321,128 @@ assert.equal(nikita.avatarId, 'm1', 'Nikita must have male avatar m1');
 assert.equal(nikita.backgroundId, 'hunter', 'Nikita must have hunter backgroundId');
 assert.deepEqual(nikita.taggedSkills, ['search', 'navigation', 'firearms']);
 
-console.log('22-skill mathematical audit & archetype regression tests: PASS');
+// ---------------------------------------------------------------------------
+// GAMEPLAY INTEGRATION PASS 1: 8 SKILLS UNIT & REGRESSION TESTS
+// ---------------------------------------------------------------------------
+
+// 1. SEARCH: Canonical resolveSkillCheck replacing survival in ruins scavenging
+// Formula: Base = Attribute (PER) * 4 + Skill * 0.6. DC = 45.
+const lowSearchCheck = resolveSkillCheck(3, 10, 45, 10); // Base = 3*4 + 6 = 18. Margin = 18 - 45 = -27
+assert.equal(lowSearchCheck.outcome, 'critical_failure');
+
+const midSearchCheck = resolveSkillCheck(5, 50, 45, 10); // Base = 5*4 + 30 = 50. Margin = 50 - 45 = +5
+assert.equal(midSearchCheck.outcome, 'success');
+
+const partialSearchCheck = resolveSkillCheck(5, 30, 45, 10); // Base = 20 + 18 = 38. Margin = 38 - 45 = -7
+assert.equal(partialSearchCheck.outcome, 'partial');
+
+const critSearchCheck = resolveSkillCheck(8, 70, 45, 20); // Natural 20 + margin > 0
+assert.equal(critSearchCheck.outcome, 'critical_success');
+
+// 2. STEALTH: Ruins ambush avoidance
+// DC = 50. Governing attribute = AGI.
+const highStealthAvoidsAmbush = resolveSkillCheck(8, 70, 50, 10); // Base = 32 + 42 = 74. Margin = +24
+assert.equal(highStealthAvoidsAmbush.outcome, 'success');
+assert.ok(highStealthAvoidsAmbush.margin >= 0, 'High stealth succeeds and avoids ambush');
+
+const lowStealthCaughtInAmbush = resolveSkillCheck(2, 10, 50, 5); // Base = 8 + 6 = 14, RollMod = -5. Final = 9. Margin = -41
+assert.equal(lowStealthCaughtInAmbush.outcome, 'critical_failure');
+
+// 3. SURVIVAL: Scale hunger and thirst accumulation rate
+// Base: 10 units. Skill 0 -> 10.0; Skill 50 -> 8.5; Skill 100 -> 7.0 (30% reduction).
+assert.equal(calculateSurvivalConsumptionRate(10, 0, false), 10);
+assert.equal(calculateSurvivalConsumptionRate(10, 50, false), 8.5);
+assert.equal(calculateSurvivalConsumptionRate(10, 100, false), 7.0);
+
+// Survivalist feat stack: 10 * 0.70 * 0.65 = 4.55
+assert.equal(Math.round(calculateSurvivalConsumptionRate(10, 100, true) * 100) / 100, 4.55);
+
+// Over-cap clamp: skill 999 cannot reduce beyond 30%
+assert.equal(calculateSurvivalConsumptionRate(10, 999, false), 7.0);
+// Negative skill clamp
+assert.equal(calculateSurvivalConsumptionRate(10, -50, false), 10);
+
+// 4. NAVIGATION: Travel hours determined by resolveSkillCheck (DC 45, PER)
+const getTravelHours = (per: number, navSkill: number, d20: number): number => {
+  const check = resolveSkillCheck(per, navSkill, 45, d20);
+  if (check.outcome === 'critical_success') return 1;
+  if (check.outcome === 'success') return 2;
+  if (check.outcome === 'partial') return 3;
+  if (check.outcome === 'failure') return 4;
+  return 5;
+};
+
+assert.equal(getTravelHours(8, 70, 20), 1, 'Crit success = 1 hour shortcut');
+assert.equal(getTravelHours(6, 50, 12), 2, 'Success = 2 hours efficient travel');
+assert.equal(getTravelHours(5, 30, 10), 3, 'Partial = 3 hours standard route');
+assert.equal(getTravelHours(4, 20, 8), 4, 'Failure = 4 hours delayed route');
+assert.equal(getTravelHours(2, 10, 1), 5, 'Critical failure = 5 hours lost in storm');
+
+// 5. BARTER: Economic pricing bounds
+// Base value 100:
+// Barter 0: Buy = 150, Sell = 35
+assert.equal(calculateBarterPrice(100, 0, 'buy'), 150);
+assert.equal(calculateBarterPrice(100, 0, 'sell'), 35);
+
+// Barter 50: Buy = 130, Sell = 53 (rounded from 52.5)
+assert.equal(calculateBarterPrice(100, 50, 'buy'), 130);
+assert.equal(calculateBarterPrice(100, 50, 'sell'), 53);
+
+// Barter 100: Buy = 110, Sell = 70
+assert.equal(calculateBarterPrice(100, 100, 'buy'), 110);
+assert.equal(calculateBarterPrice(100, 100, 'sell'), 70);
+
+// Minimum price safety bounds: never 0 or negative
+assert.equal(calculateBarterPrice(0, 50, 'buy'), 1);
+assert.equal(calculateBarterPrice(-20, 50, 'sell'), 1);
+assert.equal(calculateBarterPrice(1, 100, 'sell'), 1);
+
+// 6. LEADERSHIP: Companion tactical defense and support fire scaling
+assert.equal(calculateLeadershipDefenseBonus(0), 0);
+assert.equal(calculateLeadershipDefenseBonus(24), 0);
+assert.equal(calculateLeadershipDefenseBonus(25), 1);
+assert.equal(calculateLeadershipDefenseBonus(50), 2);
+assert.equal(calculateLeadershipDefenseBonus(75), 3);
+assert.equal(calculateLeadershipDefenseBonus(100), 4);
+assert.equal(calculateLeadershipDefenseBonus(999), 4, 'Defense bonus capped at 4');
+
+assert.equal(calculateCompanionSupportEffectiveness(10, 0), 10);
+assert.equal(calculateCompanionSupportEffectiveness(10, 50), 11);
+assert.equal(calculateCompanionSupportEffectiveness(10, 100), 13); // +30%
+
+// Companion damage resolution with leadership mitigation:
+// 10 max HP, takes 5 damage with 50 leadership (mitigation 2) -> effective damage 3, remaining HP = 7
+const compState = resolveCompanionDamage(10, 10, 5, 50);
+assert.equal(compState.currentHp, 7);
+assert.equal(compState.state, 'HEALTHY');
+
+// 7. ANIMAL HANDLING: Pet assist scaling
+assert.deepEqual(getPetHandlingBonus(null, 50), { searchBonus: 0, stealthBonus: 0, combatDamageBonus: 0, foodPreservationPct: 0 });
+assert.deepEqual(getPetHandlingBonus('none', 100), { searchBonus: 0, stealthBonus: 0, combatDamageBonus: 0, foodPreservationPct: 0 });
+
+const houndNoSkill = getPetHandlingBonus('hound', 0);
+assert.equal(houndNoSkill.combatDamageBonus, 1);
+assert.equal(houndNoSkill.searchBonus, 2);
+assert.equal(houndNoSkill.stealthBonus, 3);
+
+const houndMasterSkill = getPetHandlingBonus('hound', 100);
+assert.equal(houndMasterSkill.combatDamageBonus, 5); // +5 bite damage
+assert.equal(houndMasterSkill.searchBonus, 10);
+assert.equal(houndMasterSkill.stealthBonus, 11);
+
+const catBonus = getPetHandlingBonus('cat', 100);
+assert.equal(catBonus.foodPreservationPct, 25);
+assert.equal(catBonus.stealthBonus, 16);
+
+const crowBonus = getPetHandlingBonus('crow', 100);
+assert.equal(crowBonus.searchBonus, 17); // aerial scout spots hidden caches
+
+// 8. ATHLETICS: Physical obstacle clearance check (DC 50, STR)
+const strongAthletics = resolveSkillCheck(7, 60, 50, 10); // Base = 28 + 36 = 64. Margin = +14
+assert.equal(strongAthletics.outcome, 'success');
+
+const weakAthletics = resolveSkillCheck(2, 10, 50, 10); // Base = 8 + 6 = 14. Margin = -36
+assert.equal(weakAthletics.outcome, 'critical_failure');
+
+console.log('22-skill mathematical audit, archetype & gameplay integration tests: PASS');
+

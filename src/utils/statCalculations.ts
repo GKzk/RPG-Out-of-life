@@ -12,92 +12,47 @@ import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
 import { getMaxAP } from './characterSystem';
 
-export const MAX_SPECIAL_POINT_POOL = 28;
+export const TOTAL_SPECIAL_POINTS = 40;
+export const MAX_SPECIAL_POINT_POOL = 40;
+export const MIN_SPECIAL = 1;
+export const MAX_SPECIAL = 10;
 
 /**
- * Calculates how many points a base stat value costs considering soft caps:
- * Stats 1-7: 1 point per level
- * Stat 8: 2 points
- * Stat 9: 2 points
- * Stat 10: 3 points
+ * Calculates how many points a base stat value costs.
+ * In the simplified 40-point SPECIAL model, each point in a stat costs exactly 1 point.
  */
 export function getStatCost(val: number): number {
-  if (val < 1 || val > 10) return 0;
-  if (val === 1) return 0;
-  if (val <= 6) return val - 1;
-  if (val === 7) return 7;
-  if (val === 8) return 10;
-  if (val === 9) return 14;
-  return 19;
+  return val;
 }
 
-export function getTotalPointCost(special: SpecialStats): number {
+export function getTotalSpecialPoints(special: SpecialStats): number {
   return (
-    getStatCost(special.STR) +
-    getStatCost(special.PER) +
-    getStatCost(special.END) +
-    getStatCost(special.CHA) +
-    getStatCost(special.INT) +
-    getStatCost(special.AGI) +
-    getStatCost(special.LCK)
+    special.STR +
+    special.PER +
+    special.END +
+    special.CHA +
+    special.INT +
+    special.AGI +
+    special.LCK
   );
 }
 
-/**
- * Evaluates active anti-synergies based on extreme combinations
- */
-export function getActiveAntiSynergies(special: SpecialStats): AntiSynergyPenalty[] {
-  const penalties: AntiSynergyPenalty[] = [];
-
-  // Brute anti-synergy
-  if (special.STR >= 8 && special.END >= 8) {
-    penalties.push({
-      id: 'brute_tradeoff',
-      nameRu: 'Гипертрофированная масса (Громила)',
-      descriptionRu: 'Чрезмерные мышцы и общая массивность делают вас крайне неповоротливым, грубым и мыслящим простыми категориями.',
-      penalties: { AGI: -2, INT: -2, CHA: -1 },
-      reason: 'Сила 8+ и Выносливость 8+',
-    });
-  }
-
-  // Paper Genius
-  if (special.INT >= 8 && special.PER >= 8) {
-    penalties.push({
-      id: 'paper_genius_tradeoff',
-      nameRu: 'Кабинетный гений (Хрупкость)',
-      descriptionRu: 'Глубокие аналитические умственные способности развивались за счет дистрофии костей и атрофии мышц.',
-      penalties: { END: -2, STR: -2 },
-      reason: 'Интеллект 8+ и Восприятие 8+',
-    });
-  }
-
-  // Agile Ghost
-  if (special.AGI >= 8 && special.LCK >= 8) {
-    penalties.push({
-      id: 'agile_ghost_tradeoff',
-      nameRu: 'Нервное истощение (Тень)',
-      descriptionRu: 'Бешеная рефлекторная скорость заставляет организм работать на пределе, выжигая физическую стойкость.',
-      penalties: { END: -2, STR: -1 },
-      reason: 'Ловкость 8+ и Удача 8+',
-    });
-  }
-
-  // Smooth Talker / Diplomat
-  if (special.CHA >= 8 && special.INT >= 8) {
-    penalties.push({
-      id: 'smooth_talker_tradeoff',
-      nameRu: 'Изнеженный аристократ',
-      descriptionRu: 'Привычка решать проблемы языком привела к полному неприятию тяжелого физического труда.',
-      penalties: { STR: -2, END: -1 },
-      reason: 'Харизма 8+ и Интеллект 8+',
-    });
-  }
-
-  return penalties;
+export function getTotalPointCost(special: SpecialStats): number {
+  return getTotalSpecialPoints(special);
 }
 
 /**
- * Calculates effective SPECIAL stats taking base, feats, anti-synergies, and survival needs into account
+ * Retained for backward-compatibility.
+ * Anti-synergies have been removed as per the simplified Fallout-style SPECIAL design.
+ */
+export function getActiveAntiSynergies(_special: SpecialStats): AntiSynergyPenalty[] {
+  return [];
+}
+
+/**
+ * Calculates effective SPECIAL stats taking base, feats, and survival needs into account.
+ * Automatic hidden anti-synergies are disabled: the player receives exactly their allocated SPECIAL
+ * plus explicitly chosen feats and survival states.
  */
 export function calculateEffectiveSpecial(
   base: SpecialStats,
@@ -106,15 +61,7 @@ export function calculateEffectiveSpecial(
 ): SpecialStats {
   const effective: SpecialStats = { ...base };
 
-  // 1. Anti-synergies
-  const antiSynergies = getActiveAntiSynergies(base);
-  for (const penalty of antiSynergies) {
-    (Object.keys(penalty.penalties) as SpecialAttribute[]).forEach((attr) => {
-      effective[attr] += penalty.penalties[attr] || 0;
-    });
-  }
-
-  // 2. Feats
+  // 1. Feats
   featIds.forEach((featId) => {
     const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
     if (feat && feat.statModifiers) {

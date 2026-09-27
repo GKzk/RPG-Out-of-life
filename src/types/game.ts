@@ -10,6 +10,13 @@ export interface SpecialStats {
   LCK: number;
 }
 
+export interface SpecialDefinition {
+  id: SpecialAttribute;
+  nameRu: string;
+  short: string;
+  descriptionRu: string;
+}
+
 export type SkillName =
   | 'athletics' | 'stealth' | 'sleightOfHand' | 'unarmed' | 'melee'
   | 'firearms' | 'explosives' | 'survival' | 'search' | 'navigation' | 'insight'

@@ -1,6 +1,8 @@
 import React from 'react';
 import { useGame } from '../context/GameContext';
 import { ITEM_DATABASE } from '../data/items';
+import { calculateSkillValue } from '../utils/statCalculations';
+import { calculateBarterPrice } from '../utils/characterSystem';
 import {
   Package,
   Shield,
@@ -16,6 +18,7 @@ import {
 export const InventoryView: React.FC = () => {
   const {
     character,
+    effectiveSpecial,
     inventory,
     derivedStats,
     equipWeapon,
@@ -30,6 +33,7 @@ export const InventoryView: React.FC = () => {
   const equippedArmor = ITEM_DATABASE.find((i) => i.id === character.equippedArmorId);
 
   const isOverweight = derivedStats.carryWeightCurrent > derivedStats.carryWeightMax;
+  const barterSkill = calculateSkillValue('barter', character, effectiveSpecial);
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 font-mono text-amber-300 space-y-6">
@@ -175,8 +179,9 @@ export const InventoryView: React.FC = () => {
                     <p className="text-xs text-neutral-400 leading-relaxed">{item.description}</p>
                     <div className="text-[11px] text-neutral-500 font-mono">
                       Тип: <span className="text-amber-400/80">{item.type}</span> | Вес единицы:{' '}
-                      <span className="text-neutral-300">{item.weight} кг</span> | Ценность:{' '}
-                      <span className="text-amber-300">{item.value} крышек</span>
+                      <span className="text-neutral-300">{item.weight} кг</span> | Базовая цена:{' '}
+                      <span className="text-amber-300">{item.value} кр.</span> | Сдача (Бартер):{' '}
+                      <span className="text-emerald-400 font-bold">{calculateBarterPrice(item.value, barterSkill, 'sell')} кр.</span>
                     </div>
                   </div>
 

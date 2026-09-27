@@ -119,7 +119,7 @@ export const CharacterCreation: React.FC = () => {
   const startArchetype = (presetId: string) => {
     const preset = ARCHETYPE_PRESETS.find((item) => item.id === presetId);
     if (!preset) return;
-    loadPresetCharacter(presetId, preset.titleRu.split(' — ')[0]);
+    loadPresetCharacter(presetId, preset.titleRu);
   };
 
   const updateStat = (attr: SpecialAttribute, delta: number) => {
@@ -444,7 +444,7 @@ export const CharacterCreation: React.FC = () => {
                   {background.titleRu} → обязательный навык: <span className="font-semibold text-[#eeeae0]">{backgroundSkillName}</span>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[390px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[460px] overflow-y-auto pr-1">
                 {SKILL_DEFINITIONS.map((skill) => {
                   const selected = taggedSkills.includes(skill.id);
                   const locked = skill.id === backgroundSkill;
@@ -452,15 +452,27 @@ export const CharacterCreation: React.FC = () => {
                     <button
                       key={skill.id}
                       onClick={() => toggleTagSkill(skill.id)}
-                      className={`text-left rounded-xl border p-2.5 transition-colors ${
-                        selected ? 'border-[#a04c44] bg-[#251b19]' : 'border-[#2e3631] bg-[#121614] hover:border-[#555e57]'
+                      className={`text-left rounded-xl border p-3 transition-all flex flex-col justify-between ${
+                        selected
+                          ? 'border-[#a04c44] bg-[#251b19] shadow-[inset_3px_0_0_#b84d43]'
+                          : 'border-[#2e3631] bg-[#121614] hover:border-[#555e57]'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`text-xs font-medium ${selected ? 'text-[#e8ddd4]' : 'text-[#aaa9a0]'}`}>{skill.nameRu}</span>
-                        {locked && <span className="text-[9px] uppercase text-[#c05b50]">основа</span>}
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-xs font-semibold ${selected ? 'text-[#eeeae0]' : 'text-[#c8c4ba]'}`}>{skill.nameRu}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {locked && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-[#381a17] text-[#e06d60] border border-[#642d27]">основа</span>}
+                            {selected && !locked && <Check className="w-3.5 h-3.5 text-[#c95a4f]" />}
+                          </div>
+                        </div>
+                        <div className="mt-1 text-[9px] font-medium uppercase tracking-wider text-[#7e8982]">
+                          {skill.primaryAttr}{skill.secondaryAttr ? ` + ${skill.secondaryAttr}` : ''}
+                        </div>
+                        <p className="mt-1.5 text-[11px] leading-relaxed text-[#8f9891]">
+                          {skill.description}
+                        </p>
                       </div>
-                      <div className="mt-1 text-[9px] uppercase tracking-wider text-[#667069]">{skill.primaryAttr}{skill.secondaryAttr ? ` + ${skill.secondaryAttr}` : ''}</div>
                     </button>
                   );
                 })}
