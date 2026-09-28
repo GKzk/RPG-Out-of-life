@@ -187,7 +187,10 @@ export function calculateDerivedStats(
   });
 
   // Base Max HP formula
-  // Level progression adds durable HP in a Fallout/D&D-like way.\n  // The gain is modest so END remains the dominant survivability stat.\n  let maxHp = 25 + END * 4 + STR + (Math.max(1, character.level) - 1) * (2 + Math.floor(END / 2));\n  if (character.feats.includes('glass_cannon')) {
+  // Level progression adds durable HP in a Fallout/D&D-like way.
+  // The gain is modest so END remains the dominant survivability stat.
+  let maxHp = 25 + END * 4 + STR + (Math.max(1, character.level) - 1) * (2 + Math.floor(END / 2));
+  if (character.feats.includes('glass_cannon')) {
     maxHp = Math.floor(maxHp * 0.75); // -25% HP penalty
   }
 
