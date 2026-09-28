@@ -530,7 +530,7 @@ export const CharacterCreation: React.FC = () => {
             </div>
 
             <div className="mt-3 pt-3 border-t border-[#2d3530] text-[11px] text-[#727b74]">
-              Выберите 3 профильных навыка (+20 к базовому значению).
+              Выберите 3 Tagged-навыка (+10 к базовому значению).
             </div>
           </section>
         </div>
