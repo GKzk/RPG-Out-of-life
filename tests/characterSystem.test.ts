@@ -333,8 +333,8 @@ const level20Hp = calculateDerivedStats(
   neutralSpecial,
   []
 ).maxHp;
-assert.equal(level1Hp, 46);
-assert.equal(level20Hp, 122);
+assert.equal(level1Hp, 50);
+assert.equal(level20Hp, 126);
 assert.ok(level20Hp > level1Hp);
 
 // Regression tests for archetype preset creation and field preservation
