@@ -126,7 +126,7 @@ export const CharacterCreation: React.FC = () => {
     if (!next) return;
     setBackgroundId(id);
     // Background specifies mandatory core skill, but does NOT silently override the player's chosen feat
-    setTaggedSkills((current) => current.includes(next.coreSkill) ? current : [...current.slice(0, 2), next.coreSkill]);
+    if (next.coreSkill) setTaggedSkills((current) => current.includes(next.coreSkill!) ? current : [...current.slice(0, 2), next.coreSkill!]);
   };
 
   const startArchetype = (presetId: string) => {
@@ -143,7 +143,7 @@ export const CharacterCreation: React.FC = () => {
   };
 
   const toggleTagSkill = (skillId: SkillName) => {
-    if (skillId === backgroundSkill) return;
+    if (backgroundSkill && skillId === backgroundSkill) return;
     if (taggedSkills.includes(skillId)) {
       setTaggedSkills(taggedSkills.filter((s) => s !== skillId));
       return;
@@ -153,7 +153,7 @@ export const CharacterCreation: React.FC = () => {
   };
 
   const handleFinishCreation = () => {
-    if (taggedSkills.length !== 3 || !taggedSkills.includes(backgroundSkill) || remainingPoints < 0) return;
+    if (taggedSkills.length !== 3 || (backgroundSkill && !taggedSkills.includes(backgroundSkill)) || remainingPoints < 0) return;
     createCharacter(
       name.trim() || 'Алекс',
       background.titleRu,
@@ -687,7 +687,7 @@ export const CharacterCreation: React.FC = () => {
 
             <button
               onClick={handleFinishCreation}
-              disabled={remainingPoints < 0 || taggedSkills.length !== 3 || !taggedSkills.includes(backgroundSkill)}
+              disabled={remainingPoints < 0 || taggedSkills.length !== 3 || (!!backgroundSkill && !taggedSkills.includes(backgroundSkill))}
               className="w-full md:w-auto min-w-[280px] rounded-xl bg-[#a9473f] hover:bg-[#bc5148] disabled:bg-[#3a312f] disabled:text-[#706964] text-white font-semibold py-3.5 px-6 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-950/30"
             >
               Подтвердить персонажа и начать
