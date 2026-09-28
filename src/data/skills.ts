@@ -23,4 +23,5 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
   { id: 'leadership', nameRu: 'Лидерство', nameEn: 'Leadership', primaryAttr: 'CHA', secondaryAttr: 'END', description: 'Координация союзников, распределение задач, управление группой и разрешение конфликтов.' },
   { id: 'animalHandling', nameRu: 'Обращение с животными', nameEn: 'Animal Handling', primaryAttr: 'CHA', secondaryAttr: 'PER', description: 'Успокоение, обучение, уход и управление поведением животных.' },
   { id: 'performance', nameRu: 'Исполнение', nameEn: 'Performance', primaryAttr: 'CHA', secondaryAttr: 'PER', description: 'Музыка, вокал, выступление, импровизация и художественное воздействие на аудиторию.' },
+  { id: 'energyWeapons', nameRu: 'Энергетическое оружие', nameEn: 'Energy Weapons', primaryAttr: 'PER', secondaryAttr: 'INT', description: 'Лазерное и плазменное оружие, довоенные энергетические системы, настройка и безопасная эксплуатация.' },
 ];
