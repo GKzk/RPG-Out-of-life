@@ -248,32 +248,44 @@ export function calculateDerivedStats(
   };
 }
 
-/**
- * Calculate total value for a single skill
- */
+/** Skill progression: 0–100 with escalating training costs. */
+export function getSkillTrainingCostPerPoint(currentValue: number): number {
+  const value = Math.max(0, Math.min(100, Math.floor(currentValue)));
+  if (value < 50) return 1;
+  if (value < 75) return 2;
+  if (value < 90) return 3;
+  return 4;
+}
+
+export function getSkillModifier(skill: number): number {
+  const value = Math.max(0, Math.min(100, Math.floor(skill)));
+  if (value === 100) return 7;
+  return Math.floor(value / 10) - 3;
+}
+
+export function calculateSkillBaseValue(
+  skillId: SkillName,
+  effectiveSpecial: SpecialStats
+): number {
+  const skillDef = SKILL_DEFINITIONS.find((s) => s.id === skillId);
+  if (!skillDef) return 0;
+  const primaryVal = effectiveSpecial[skillDef.primaryAttr] || 1;
+  const secondaryVal = skillDef.secondaryAttr ? effectiveSpecial[skillDef.secondaryAttr] || 1 : 0;
+  return primaryVal * 2 + secondaryVal;
+}
+
 export function calculateSkillValue(
   skillId: SkillName,
   character: Character,
   effectiveSpecial: SpecialStats
 ): number {
-  const skillDef = SKILL_DEFINITIONS.find((s) => s.id === skillId);
-  if (!skillDef) return 0;
+  let baseVal = calculateSkillBaseValue(skillId, effectiveSpecial);
 
-  const primaryVal = effectiveSpecial[skillDef.primaryAttr] || 1;
-  const secondaryVal = skillDef.secondaryAttr ? effectiveSpecial[skillDef.secondaryAttr] || 1 : 0;
+  if (character.taggedSkills.includes(skillId)) baseVal += 10;
 
-  let baseVal = primaryVal * 3 + secondaryVal * 2;
-
-  // Tag skill bonus (+20)
-  if (character.taggedSkills.includes(skillId)) {
-    baseVal += 20;
-  }
-
-  // Skill points manually invested
   const invested = character.skillPointsInvested[skillId] || 0;
   baseVal += invested;
 
-  // Feat skill modifiers
   character.feats.forEach((featId) => {
     const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
     if (feat?.skillModifiers && feat.skillModifiers[skillId] !== undefined) {
@@ -281,15 +293,60 @@ export function calculateSkillValue(
     }
   });
 
-  // Legacy fallback
   if (character.feats.includes('eloquent_diplomat')) {
     if (skillId === 'persuasion' || skillId === 'barter') baseVal += 25;
     if (skillId === 'melee' || skillId === 'unarmed') baseVal -= 20;
   }
 
-  // Canonical skill scale is 0–100. Attribute-derived skill plus investments
-  // can otherwise exceed the progression ceiling once a character is highly specialized.
-  return Math.max(1, Math.min(100, baseVal));
+  return Math.max(0, Math.min(100, baseVal));
+}
+
+export function getSkillTrainingCost(
+  skillId: SkillName,
+  character: Character,
+  effectiveSpecial: SpecialStats,
+  targetValue: number
+): number {
+  const target = Math.max(0, Math.min(100, Math.floor(targetValue)));
+  let value = calculateSkillValue(skillId, { ...character, skillPointsInvested: { ...character.skillPointsInvested, [skillId]: 0 } }, effectiveSpecial);
+  let cost = 0;
+  while (value < target) {
+    cost += getSkillTrainingCostPerPoint(value);
+    value += 1;
+  }
+  return cost;
+}
+
+export function getTotalSkillPointsSpent(
+  character: Character,
+  effectiveSpecial: SpecialStats
+): number {
+  return SKILL_DEFINITIONS.reduce(
+    (total, skill) => total + getSkillTrainingCost(skill.id, character, effectiveSpecial, calculateSkillValue(skill.id, character, effectiveSpecial)),
+    0
+  );
+}
+
+export function getStartingSkillPoints(character: Character): number {
+  return 8 + Math.max(1, Math.min(10, character.baseSpecial.INT));
+}
+
+export function getSkillPointsPerLevel(character: Character): number {
+  const int = Math.max(1, Math.min(10, character.baseSpecial.INT));
+  const backgroundBonus = character.backgroundId === 'none' ? 2 : 0;
+  return 4 + Math.floor(int / 2) + backgroundBonus;
+}
+
+export function getTotalSkillPointsEarned(character: Character): number {
+  const levelsGained = Math.max(0, character.level - 1);
+  return getStartingSkillPoints(character) + levelsGained * getSkillPointsPerLevel(character);
+}
+
+export function getAvailableSkillPoints(
+  character: Character,
+  effectiveSpecial: SpecialStats
+): number {
+  return Math.max(0, getTotalSkillPointsEarned(character) - getTotalSkillPointsSpent(character, effectiveSpecial));
 }
 
 export type SkillCheckOutcome = 'success' | 'partial' | 'failure' | 'critical_failure' | 'critical_success';
@@ -302,20 +359,12 @@ export interface SkillCheckResult {
   outcome: SkillCheckOutcome;
 }
 
-/**
- * Canonical skill-check score from GAME_DESIGN/SKILL_CHECK_BALANCE.md.
- * Skill is the independent 0–100 proficiency value; attributes contribute separately.
- */
 export function calculateSkillCheckBase(attribute: number, skill: number): number {
   const safeAttribute = Math.max(1, Math.min(10, attribute));
   const safeSkill = Math.max(0, Math.min(100, skill));
-  return safeAttribute * 4 + safeSkill * 0.6;
+  return (safeAttribute - 5) + getSkillModifier(safeSkill);
 }
 
-/**
- * Resolves the canonical 1d20 skill check.
- * Roll modifier is d20 - 10, producing -9..+10.
- */
 export function resolveSkillCheck(
   attribute: number,
   skill: number,
@@ -331,16 +380,17 @@ export function resolveSkillCheck(
   }
 
   const baseScore = calculateSkillCheckBase(attribute, skill);
-  const rollModifier = d20 - 10;
-  const finalScore = baseScore + externalModifier + rollModifier;
+  const rollModifier = d20;
+  const finalScore = baseScore + rollModifier + externalModifier;
   const margin = finalScore - difficulty;
 
   let outcome: SkillCheckOutcome;
   if (d20 === 20 && margin >= 0) outcome = 'critical_success';
-  else if (d20 === 1 && margin < 0) outcome = 'critical_failure';
+  else if (d20 === 1) outcome = 'critical_failure';
+  else if (margin >= 5) outcome = 'success';
   else if (margin >= 0) outcome = 'success';
-  else if (margin >= -9) outcome = 'partial';
-  else if (margin >= -19) outcome = 'failure';
+  else if (margin >= -4) outcome = 'partial';
+  else if (margin >= -10) outcome = 'failure';
   else outcome = 'critical_failure';
 
   return { baseScore, rollModifier, finalScore, margin, outcome };
