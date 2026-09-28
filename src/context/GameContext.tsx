@@ -975,18 +975,64 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 600);
   };
 
-  // Level Up Skill Point Investment
+  // Level Up Skill Point Investment: escalating 1/2/3/4 SP curve, no per-skill cap.
   const investSkillPoint = (skillId: SkillName) => {
     if (!character) return;
-    const currentVal = character.skillPointsInvested[skillId] || 0;
+    const currentInvested = character.skillPointsInvested[skillId] || 0;
+    const skillDef = SKILL_DEFINITIONS.find((s) => s.id === skillId);
+    if (!skillDef) return;
+
+    const baseSkill = calculateSkillValue(
+      skillId,
+      { ...character, skillPointsInvested: { ...character.skillPointsInvested, [skillId]: 0 } },
+      effectiveSpecial
+    );
+    const currentValue = Math.min(100, baseSkill + currentInvested);
+    if (currentValue >= 100) {
+      addLogMessage('Навык уже достиг максимума 100.', 'hazard');
+      return;
+    }
+
+    const cost =
+      currentValue < 50 ? 1 :
+      currentValue < 75 ? 2 :
+      currentValue < 90 ? 3 : 4;
+
+    const totalEarned =
+      8 + character.baseSpecial.INT +
+      Math.max(0, character.level - 1) *
+        (4 + Math.floor(character.baseSpecial.INT / 2) + (character.backgroundId === 'none' ? 2 : 0));
+
+    let spent = 0;
+    for (const [id, invested] of Object.entries(character.skillPointsInvested)) {
+      if (!invested) continue;
+      const def = SKILL_DEFINITIONS.find((s) => s.id === id);
+      if (!def) continue;
+      const base = calculateSkillValue(
+        id as SkillName,
+        { ...character, skillPointsInvested: { ...character.skillPointsInvested, [id as SkillName]: 0 } },
+        effectiveSpecial
+      );
+      let value = base;
+      for (let i = 0; i < invested && value < 100; i++) {
+        spent += value < 50 ? 1 : value < 75 ? 2 : value < 90 ? 3 : 4;
+        value++;
+      }
+    }
+
+    if (totalEarned - spent < cost) {
+      addLogMessage(`Недостаточно очков обучения. Нужно ${cost} SP.`, 'hazard');
+      return;
+    }
+
     setCharacter({
       ...character,
       skillPointsInvested: {
         ...character.skillPointsInvested,
-        [skillId]: currentVal + 1,
+        [skillId]: currentInvested + 1,
       },
     });
-    addLogMessage(`Прокачан навык: ${skillId} (+1 pt).`, 'info');
+    addLogMessage(`Навык ${skillId} повышен до ${currentValue + 1}. Потрачено ${cost} SP.`, 'info');
   };
 
   const addFeat = (featId: string) => {
