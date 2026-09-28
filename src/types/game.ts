@@ -22,7 +22,7 @@ export type SkillName =
   | 'firearms' | 'explosives' | 'survival' | 'search' | 'navigation' | 'insight'
   | 'medicine' | 'mechanics' | 'electronics' | 'science' | 'crafting'
   | 'persuasion' | 'barter' | 'deception' | 'leadership'
-  | 'animalHandling' | 'performance';
+  | 'animalHandling' | 'performance' | 'energyWeapons';
 
 export interface SkillDefinition {
   id: SkillName;
