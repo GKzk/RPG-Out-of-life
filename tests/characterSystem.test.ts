@@ -35,7 +35,7 @@ import {
   calculateSurvivalConsumptionRate,
   calculateBarterPrice,
 } from '../src/utils/characterSystem';
-import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned } from '../src/utils/statCalculations';
+import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getSkillTrainingCost, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned } from '../src/utils/statCalculations';
 import { SkillName, Character, SpecialStats } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
 import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
