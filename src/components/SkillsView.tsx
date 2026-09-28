@@ -1,7 +1,7 @@
 import React from 'react';
 import { useGame } from '../context/GameContext';
 import { SKILL_DEFINITIONS } from '../data/skills';
-import { calculateSkillValue } from '../utils/statCalculations';
+import { calculateSkillValue, getAvailableSkillPoints, getSkillTrainingCostPerPoint } from '../utils/statCalculations';
 import { Award, CheckCircle2, Plus, Sparkles } from 'lucide-react';
 
 export const SkillsView: React.FC = () => {
@@ -9,10 +9,7 @@ export const SkillsView: React.FC = () => {
 
   if (!character) return null;
 
-  // Available skill points formula = Level * (10 + INT * 2) - total spent
-  const totalEarnedPoints = character.level * (10 + effectiveSpecial.INT * 2);
-  const totalSpentPoints = Object.values(character.skillPointsInvested).reduce((a, b) => a + b, 0);
-  const remainingPoints = Math.max(0, totalEarnedPoints - totalSpentPoints);
+  const remainingPoints = getAvailableSkillPoints(character, effectiveSpecial);
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 font-mono text-amber-300 space-y-6">
@@ -20,11 +17,10 @@ export const SkillsView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-amber-400 font-bold text-lg">
             <Award className="w-6 h-6" />
-            <h1>СИСТЕМА НАВЫКОВ ПУСТОШИ</h1>
+            <h1>СИСТЕМА НАВЫКОВ</h1>
           </div>
           <p className="text-xs text-neutral-400 mt-1 max-w-2xl leading-relaxed">
-            Навыки зависят от базовых параметров S.P.E.C.I.A.L. Ключевые навыки получают стартовый бонус +20. 
-            Каждый уровень вам начисляются очки навыков, зависящие от вашего <strong className="text-amber-300">Интеллекта</strong>.
+            Навыки зависят от базовых параметров S.P.E.C.I.A.L. Tagged-навыки получают стартовый бонус +10. Стоимость обучения растёт после 50, 75 и 90. Очки за уровень зависят от вашего <strong className="text-amber-300">Интеллекта</strong>.
           </p>
         </div>
 
@@ -42,8 +38,8 @@ export const SkillsView: React.FC = () => {
               <tr className="bg-neutral-950 border-b border-neutral-800 text-amber-500/80 font-bold uppercase tracking-wider">
                 <th className="p-3">Название Навыка</th>
                 <th className="p-3">Характеристика</th>
-                <th className="p-3 text-center">Ключевой (+20)</th>
-                <th className="p-3 text-center">Вложено pts</th>
+                <th className="p-3 text-center">Tagged (+10)</th>
+                <th className="p-3 text-center">Вложено</th>
                 <th className="p-3 text-right">Итоговое Значение</th>
                 <th className="p-3 text-center">Прокачка</th>
               </tr>
@@ -53,6 +49,7 @@ export const SkillsView: React.FC = () => {
                 const isTagged = character.taggedSkills.includes(skill.id);
                 const invested = character.skillPointsInvested[skill.id] || 0;
                 const totalVal = calculateSkillValue(skill.id, character, effectiveSpecial);
+                const nextCost = totalVal >= 100 ? 0 : getSkillTrainingCostPerPoint(totalVal);
 
                 return (
                   <tr key={skill.id} className="hover:bg-neutral-800/40 transition-colors">
@@ -84,9 +81,9 @@ export const SkillsView: React.FC = () => {
                         onClick={() => investSkillPoint(skill.id)}
                         disabled={remainingPoints <= 0}
                         className="bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/50 disabled:opacity-20 text-amber-300 p-1.5 rounded transition-all font-bold"
-                        title="Вложить 1 очко навыка"
+                        title="Повысить навык: стоимость зависит от текущего значения"
                       >
-                        <Plus className="w-4 h-4" />
+                        <><Plus className="w-4 h-4" /><span className="sr-only">Стоимость {nextCost} SP</span></>
                       </button>
                     </td>
                   </tr>
