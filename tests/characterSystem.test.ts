@@ -197,7 +197,7 @@ assert.equal(auditDerived.evasion, 12, 'legacy armor defense must not double as 
 
 
 
-// Canonical 22-skill mathematical audit.
+// Canonical 23-skill mathematical audit.
 assert.equal(SKILL_DEFINITIONS.length, 23, 'canonical skill count');
 assert.equal(new Set(SKILL_DEFINITIONS.map((s) => s.id)).size, 23, 'skill IDs must be unique');
 assert.deepEqual(SKILL_DEFINITIONS.map((s) => s.id), ["athletics","stealth","sleightOfHand","unarmed","melee","firearms","explosives","survival","search","navigation","insight","medicine","mechanics","electronics","science","crafting","persuasion","barter","deception","leadership","animalHandling","performance","energyWeapons"], 'skill order must match canonical model');
@@ -299,7 +299,7 @@ assert.equal(getTotalSkillPointsEarned(int5Level20), 127);
 // Regression tests for archetype preset creation and field preservation
 assert.equal(ARCHETYPE_PRESETS.length, 8, '8 archetype presets must be defined');
 
-// Verify 22 skills metadata completeness
+// Verify 23 skills metadata completeness
 assert.equal(SKILL_DEFINITIONS.length, 23, 'Must have exactly 23 skill definitions');
 for (const skill of SKILL_DEFINITIONS) {
   assert.ok(skill.nameRu && skill.nameRu.trim().length > 0, `Skill ${skill.id} must have non-empty nameRu`);
@@ -603,5 +603,5 @@ for (const pet of PET_DEFINITIONS) {
   assert.ok(!pet.descriptionRu.includes('Пустош'), `${pet.id} must not use word 'Пустошь'`);
 }
 
-console.log('22-skill mathematical audit, archetype, feat balance & gameplay integration tests: PASS');
+console.log('23-skill mathematical audit, archetype, feat balance & gameplay integration tests: PASS');
 
