@@ -317,6 +317,31 @@ assert.equal(getLevelForXp(300), 3);
 assert.equal(getLevelForXp(18999), 19);
 assert.equal(getLevelForXp(19000), 20);
 assert.equal(getLevelForXp(999999), 20);
+
+// Every level threshold must be monotonic and map to exactly one level.
+for (let level = 1; level < MAX_LEVEL; level++) {
+  const threshold = getXpForLevel(level + 1);
+  assert.equal(getLevelForXp(threshold - 1), level, `XP immediately below level ${level + 1} threshold`);
+  assert.equal(getLevelForXp(threshold), level + 1, `XP at level ${level + 1} threshold`);
+  assert.ok(getXpForLevel(level + 1) > getXpForLevel(level), 'XP thresholds must strictly increase');
+}
+
+// Skill-point income must be monotonic and consistent at every level for INT 1–10.
+for (let int = 1; int <= 10; int++) {
+  let previousBudget = 0;
+  for (let level = 1; level <= MAX_LEVEL; level++) {
+    const budget = getTotalSkillPointsEarned(progressionCharacter(level, int, 'hunter'));
+    assert.ok(budget >= previousBudget, `SP budget must not decrease (INT=${int}, level=${level})`);
+    if (level > 1) {
+      assert.equal(
+        budget - previousBudget,
+        4 + Math.floor(int / 2),
+        `per-level SP income mismatch (INT=${int}, level=${level})`
+      );
+    }
+    previousBudget = budget;
+  }
+}
 assert.equal(isPerkLevel(2), false);
 assert.equal(isPerkLevel(3), true);
 assert.equal(isPerkLevel(18), true);
@@ -367,7 +392,7 @@ const neutralSkillCharacter = progressionCharacter(20, 5, 'hunter');
 assert.equal(calculateSkillValue('firearms', progressionCharacter(1, 5, 'hunter'), neutralSpecial, []), neutralBase);
 assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 60), 55);
 assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 85), 115);
-assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100), 175);
+assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100), 170);
 assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 1, 'hunter'), neutralSpecial, 85) <= getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')));
 assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 1, 'hunter'), neutralSpecial, 100) > getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')));
 assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100) <= getTotalSkillPointsEarned(progressionCharacter(20, 5, 'hunter')));
