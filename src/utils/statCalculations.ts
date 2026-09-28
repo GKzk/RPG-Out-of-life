@@ -336,7 +336,7 @@ export function getSkillTrainingCost(
 
 export function getTotalSkillPointsSpent(
   character: Character,
-  effectiveSpecial: SpecialStats
+  _effectiveSpecial: SpecialStats
 ): number {
   const trainingSpecial = getTrainingSpecial(character);
   return SKILL_DEFINITIONS.reduce((total, skill) => {
