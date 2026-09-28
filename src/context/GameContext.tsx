@@ -20,6 +20,7 @@ import {
   calculateSkillValue,
   rollD20,
   resolveSkillCheck,
+  getSkillTrainingCostPerPoint,
 } from '../utils/statCalculations';
 import {
   getAttributeMod,
