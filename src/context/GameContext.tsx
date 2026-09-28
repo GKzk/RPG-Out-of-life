@@ -22,6 +22,7 @@ import {
   resolveSkillCheck,
   getSkillTrainingCostPerPoint,
   getTrainingSpecial,
+  getSkillModifier,
 } from '../utils/statCalculations';
 import {
   getAttributeMod,
@@ -780,7 +781,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const attackMod = getAttributeMod(effectiveSpecial.PER);
-    const skillBonus = skillVal;
+    const skillBonus = getSkillModifier(skillVal);
     const weaponAccuracy = featRangedAccuracy;
     const d20 = rollD20();
     const attackTotal = d20 + attackMod + skillBonus + weaponAccuracy;
