@@ -301,6 +301,23 @@ export function calculateSkillValue(
   return Math.max(0, Math.min(100, baseVal));
 }
 
+export function getTrainingSpecial(character: Character): SpecialStats {
+  const neutralNeeds: SurvivalNeeds = {
+    hunger: 0,
+    thirst: 0,
+    fatigue: 0,
+    radiation: 0,
+    infection: 0,
+    addictions: {
+      stims: { level: 0, activeDuration: 0, withdrawal: false },
+      psycho: { level: 0, activeDuration: 0, withdrawal: false },
+      buffout: { level: 0, activeDuration: 0, withdrawal: false },
+      alcohol: { level: 0, activeDuration: 0, withdrawal: false },
+    },
+  };
+  return calculateEffectiveSpecial(character.baseSpecial, character.feats, neutralNeeds);
+}
+
 export function getSkillTrainingCost(
   skillId: SkillName,
   character: Character,
@@ -321,16 +338,17 @@ export function getTotalSkillPointsSpent(
   character: Character,
   effectiveSpecial: SpecialStats
 ): number {
+  const trainingSpecial = getTrainingSpecial(character);
   return SKILL_DEFINITIONS.reduce((total, skill) => {
     const invested = character.skillPointsInvested[skill.id] || 0;
     if (invested <= 0) return total;
     const base = calculateSkillValue(
       skill.id,
       { ...character, skillPointsInvested: { ...character.skillPointsInvested, [skill.id]: 0 } },
-      effectiveSpecial
+      trainingSpecial
     );
     const target = Math.min(100, base + invested);
-    return total + getSkillTrainingCost(skill.id, character, effectiveSpecial, target);
+    return total + getSkillTrainingCost(skill.id, character, trainingSpecial, target);
   }, 0);
 }
 
