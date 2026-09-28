@@ -11,24 +11,9 @@ export function getAttributeMod(value: number): number {
   return value - 5;
 }
 
-const POINT_BUY_COSTS: Record<number, number> = {
-  1: 0,
-  2: 1,
-  3: 2,
-  4: 3,
-  5: 4,
-  6: 5,
-  7: 7,
-  8: 10,
-  9: 14,
-  10: 19,
-};
-
 export function getPointBuyCost(value: number): number {
-  if (value < MIN_SPECIAL || value > MAX_SPECIAL) {
-    throw new Error(`SPECIAL must be in [${MIN_SPECIAL}, ${MAX_SPECIAL}]`);
-  }
-  return POINT_BUY_COSTS[value];
+  if (value < MIN_SPECIAL || value > MAX_SPECIAL) throw new Error(`SPECIAL must be in [${MIN_SPECIAL}, ${MAX_SPECIAL}]`);
+  return value;
 }
 
 export function getTotalPointBuyCost(special: SpecialStats): number {
@@ -236,6 +221,7 @@ export function createCharacterFromPreset(
     leadership: 0,
     animalHandling: 0,
     performance: 0,
+    energyWeapons: 0,
   };
 
   const newChar: Character = {
