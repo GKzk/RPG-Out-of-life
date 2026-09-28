@@ -670,8 +670,8 @@ const charWorkaholic = createTestChar('workaholic');
 assert.equal(charWorkaholic.effectiveSpecial.INT, 6, 'Workaholic must grant +1 INT');
 const baseMechanics = calculateSkillValue('mechanics', createTestChar(), createTestChar().effectiveSpecial);
 const workMechanics = calculateSkillValue('mechanics', charWorkaholic, charWorkaholic.effectiveSpecial);
-// INT increased by 1 (primaryAttr: +3), plus skillModifiers.mechanics (+10) -> +13 total
-assert.equal(workMechanics, baseMechanics + 13, 'Workaholic must grant +10 skill + 3 attribute = +13 to Mechanics');
+// INT increased by 1 (primaryAttr coefficient ×2), plus skillModifiers.mechanics (+10) -> +12 total
+assert.equal(workMechanics, baseMechanics + 12, 'Workaholic must grant +10 skill + 2 attribute = +12 to Mechanics');
 
 // 8. Fast Metabolism
 const metabolismDef = FEAT_DEFINITIONS.find((f) => f.id === 'metabolism')!;
