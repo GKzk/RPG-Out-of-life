@@ -186,10 +186,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       leadership: 0,
       animalHandling: 0,
       performance: 0,
+      energyWeapons: 0,
     };
 
     const newChar: Character = {
-      name: name || 'Странник Пустоши',
+      name: name || 'Странник',
       gender,
       avatarId,
       backgroundId,
@@ -994,10 +995,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const cost =
-      currentValue < 50 ? 1 :
-      currentValue < 75 ? 2 :
-      currentValue < 90 ? 3 : 4;
+    const cost = getSkillTrainingCostPerPoint(currentValue);
 
     const totalEarned =
       8 + character.baseSpecial.INT +
@@ -1016,7 +1014,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       let value = base;
       for (let i = 0; i < invested && value < 100; i++) {
-        spent += value < 50 ? 1 : value < 75 ? 2 : value < 90 ? 3 : 4;
+        spent += getSkillTrainingCostPerPoint(value);
         value++;
       }
     }
