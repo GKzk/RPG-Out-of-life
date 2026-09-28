@@ -217,7 +217,7 @@ for (const skill of SKILL_DEFINITIONS) {
 
 const taggedCharacter = { ...neutralSkillCharacter, taggedSkills: ['performance'] as SkillName[] };
 assert.equal(calculateSkillValue('performance', taggedCharacter, neutralSpecial), 25, 'tag bonus is +10');
-assert.equal(calculateSkillValue('athletics', taggedCharacter, neutralSpecial), 25, 'untagged skill receives no tag bonus');
+assert.equal(calculateSkillValue('athletics', taggedCharacter, neutralSpecial), 15, 'untagged skill receives no tag bonus');
 
 const specialistSpecial = { STR: 10, PER: 10, END: 10, CHA: 10, INT: 10, AGI: 10, LCK: 10 };
 assert.equal(calculateSkillValue('athletics', neutralSkillCharacter, specialistSpecial), 30, '10/10 attribute baseline');
