@@ -230,7 +230,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ];
     setInventory(startingInventory);
 
-    addLogMessage(`Персонаж ${newChar.name} вошёл в Пустошь.`, 'info');
+    addLogMessage(`Персонаж ${newChar.name} покинул поселение.`, 'info');
   };
 
   const loadPresetCharacter = (presetId: string, customName?: string) => {
@@ -955,7 +955,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCharacter((prev) => (prev ? { ...prev, currentHp: newPlayerHp } : null));
 
         if (newPlayerHp <= 0) {
-          addLogMessage(`[СМЕРТЬ] Вы погибли от ран в Пустоши...`, 'hazard');
+          addLogMessage(`[СМЕРТЬ] Вы погибли от ран...`, 'hazard');
           setTimeout(() => endCombat(false), 1000);
           return;
         }
