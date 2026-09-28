@@ -42,6 +42,7 @@ import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
 import { FEAT_DEFINITIONS } from '../src/data/feats';
 import { BACKGROUND_DEFINITIONS } from '../src/data/backgrounds';
 import { PET_DEFINITIONS } from '../src/data/pets';
+import { getXpForLevel, getXpForNextLevel, getXpToNextLevel, getLevelForXp, isPerkLevel, MAX_LEVEL } from '../src/utils/progression';
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
 assert.deepEqual([1,2,3,4,5,6,7,8,9,10].map(getPointBuyCost), [1,2,3,4,5,6,7,8,9,10]);
@@ -295,6 +296,46 @@ assert.equal(getTotalSkillPointsEarned(int10Level20), 189);
 
 const int5Level20 = { ...progressionChar, level: 20, baseSpecial: { ...neutralSpecial, INT: 5 }, effectiveSpecial: { ...neutralSpecial, INT: 5 } };
 assert.equal(getTotalSkillPointsEarned(int5Level20), 127);
+
+// Canonical XP / level progression audit: scaled Fallout-style triangular curve.
+assert.equal(MAX_LEVEL, 20);
+assert.deepEqual(
+  [1, 2, 3, 4, 5, 10, 20].map(getXpForLevel),
+  [0, 100, 300, 600, 1000, 4500, 19000]
+);
+assert.equal(getXpForNextLevel(1), 100);
+assert.equal(getXpForNextLevel(19), 19000);
+assert.equal(getXpForNextLevel(20), null);
+assert.equal(getXpToNextLevel(1, 0), 100);
+assert.equal(getXpToNextLevel(5, 1000), 500);
+assert.equal(getXpToNextLevel(20, 19000), 0);
+assert.equal(getLevelForXp(0), 1);
+assert.equal(getLevelForXp(99), 1);
+assert.equal(getLevelForXp(100), 2);
+assert.equal(getLevelForXp(299), 2);
+assert.equal(getLevelForXp(300), 3);
+assert.equal(getLevelForXp(18999), 19);
+assert.equal(getLevelForXp(19000), 20);
+assert.equal(getLevelForXp(999999), 20);
+assert.equal(isPerkLevel(2), false);
+assert.equal(isPerkLevel(3), true);
+assert.equal(isPerkLevel(18), true);
+assert.equal(isPerkLevel(20), false);
+
+// Level contributes modestly to max HP while preserving END as the main HP driver.
+const level1Hp = calculateDerivedStats(
+  { ...auditCharacter, level: 1 },
+  neutralSpecial,
+  []
+).maxHp;
+const level20Hp = calculateDerivedStats(
+  { ...auditCharacter, level: 20 },
+  neutralSpecial,
+  []
+).maxHp;
+assert.equal(level1Hp, 46);
+assert.equal(level20Hp, 122);
+assert.ok(level20Hp > level1Hp);
 
 // Regression tests for archetype preset creation and field preservation
 assert.equal(ARCHETYPE_PRESETS.length, 8, '8 archetype presets must be defined');
