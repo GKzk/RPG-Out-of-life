@@ -35,7 +35,7 @@ import {
   calculateSurvivalConsumptionRate,
   calculateBarterPrice,
 } from '../src/utils/characterSystem';
-import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial } from '../src/utils/statCalculations';
+import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned } from '../src/utils/statCalculations';
 import { SkillName, Character, SpecialStats } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
 import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
@@ -44,7 +44,7 @@ import { BACKGROUND_DEFINITIONS } from '../src/data/backgrounds';
 import { PET_DEFINITIONS } from '../src/data/pets';
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
-assert.deepEqual([1,2,3,4,5,6,7,8,9,10].map(getPointBuyCost), [0,1,2,3,4,5,7,10,14,19]);
+assert.deepEqual([1,2,3,4,5,6,7,8,9,10].map(getPointBuyCost), [1,2,3,4,5,6,7,8,9,10]);
 assert.equal(calculateMeleeDamage(4, 5), 4);
 assert.equal(calculateMeleeDamage(1, 1), 1);
 assert.equal(calculateCritMeleeDamage(6, 4, 5), 10);
@@ -165,6 +165,7 @@ const auditCharacter = {
     leadership: 0,
     animalHandling: 0,
     performance: 0,
+    energyWeapons: 0,
   },
   feats: [],
   survival: {
@@ -197,9 +198,9 @@ assert.equal(auditDerived.evasion, 12, 'legacy armor defense must not double as 
 
 
 // Canonical 22-skill mathematical audit.
-assert.equal(SKILL_DEFINITIONS.length, 22, 'canonical skill count');
-assert.equal(new Set(SKILL_DEFINITIONS.map((s) => s.id)).size, 22, 'skill IDs must be unique');
-assert.deepEqual(SKILL_DEFINITIONS.map((s) => s.id), ["athletics","stealth","sleightOfHand","unarmed","melee","firearms","explosives","survival","search","navigation","insight","medicine","mechanics","electronics","science","crafting","persuasion","barter","deception","leadership","animalHandling","performance"], 'skill order must match canonical model');
+assert.equal(SKILL_DEFINITIONS.length, 23, 'canonical skill count');
+assert.equal(new Set(SKILL_DEFINITIONS.map((s) => s.id)).size, 23, 'skill IDs must be unique');
+assert.deepEqual(SKILL_DEFINITIONS.map((s) => s.id), ["athletics","stealth","sleightOfHand","unarmed","melee","firearms","explosives","survival","search","navigation","insight","medicine","mechanics","electronics","science","crafting","persuasion","barter","deception","leadership","animalHandling","performance","energyWeapons"], 'skill order must match canonical model');
 
 const skillIds = SKILL_DEFINITIONS.map((skill) => skill.id);
 const neutralSkillCharacter = {
@@ -210,16 +211,16 @@ const neutralSkillCharacter = {
 const neutralSpecial = { STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5 };
 
 for (const skill of SKILL_DEFINITIONS) {
-  assert.equal(calculateSkillValue(skill.id, neutralSkillCharacter, neutralSpecial), 25, skill.id + ' neutral baseline');
+  assert.equal(calculateSkillValue(skill.id, neutralSkillCharacter, neutralSpecial), 15, skill.id + ' neutral baseline');
 }
 
 const taggedCharacter = { ...neutralSkillCharacter, taggedSkills: ['performance'] as SkillName[] };
-assert.equal(calculateSkillValue('performance', taggedCharacter, neutralSpecial), 45, 'tag bonus is +20');
+assert.equal(calculateSkillValue('performance', taggedCharacter, neutralSpecial), 25, 'tag bonus is +10');
 assert.equal(calculateSkillValue('athletics', taggedCharacter, neutralSpecial), 25, 'untagged skill receives no tag bonus');
 
 const specialistSpecial = { STR: 10, PER: 10, END: 10, CHA: 10, INT: 10, AGI: 10, LCK: 10 };
-assert.equal(calculateSkillValue('athletics', neutralSkillCharacter, specialistSpecial), 50, '10/10 attribute baseline');
-assert.equal(calculateSkillValue('performance', taggedCharacter, specialistSpecial), 70, '10/10 tagged baseline');
+assert.equal(calculateSkillValue('athletics', neutralSkillCharacter, specialistSpecial), 30, '10/10 attribute baseline');
+assert.equal(calculateSkillValue('performance', taggedCharacter, specialistSpecial), 40, '10/10 tagged baseline');
 
 const overCapCharacter = {
   ...neutralSkillCharacter,
@@ -237,51 +238,69 @@ for (const skill of SKILL_DEFINITIONS) {
 
 
 
-// Canonical skill-check formula audit.
-assert.equal(calculateSkillCheckBase(5, 0), 20);
-assert.equal(calculateSkillCheckBase(5, 50), 50);
-assert.equal(calculateSkillCheckBase(10, 100), 100);
+// Canonical skill-check formula audit: d20 + SPECIAL modifier + skill tier vs DC.
+assert.equal(resolveSkillCheck(5, 50, 15, 13).baseScore, 2);
+assert.equal(resolveSkillCheck(5, 50, 15, 13).finalScore, 15);
+assert.equal(resolveSkillCheck(5, 50, 15, 13).margin, 0);
+assert.equal(resolveSkillCheck(5, 50, 15, 13).outcome, 'success');
 
-const mediumCheck = resolveSkillCheck(5, 50, 50, 10);
-assert.equal(mediumCheck.baseScore, 50);
-assert.equal(mediumCheck.rollModifier, 0);
-assert.equal(mediumCheck.finalScore, 50);
-assert.equal(mediumCheck.margin, 0);
-assert.equal(mediumCheck.outcome, 'success');
+const partialCheck = resolveSkillCheck(5, 50, 15, 9);
+assert.equal(partialCheck.margin, -4);
+assert.equal(partialCheck.outcome, 'partial');
 
-const partialCheck = resolveSkillCheck(5, 50, 60, 10);
-assert.equal(partialCheck.margin, -10);
-assert.equal(partialCheck.outcome, 'failure');
+const failureCheck = resolveSkillCheck(5, 50, 15, 8);
+assert.equal(failureCheck.margin, -5);
+assert.equal(failureCheck.outcome, 'failure');
 
-const partialBorder = resolveSkillCheck(5, 50, 59, 10);
-assert.equal(partialBorder.margin, -9);
-assert.equal(partialBorder.outcome, 'partial');
-
-const criticalFailure = resolveSkillCheck(5, 0, 50, 1);
-assert.equal(criticalFailure.margin, -39);
+const criticalFailure = resolveSkillCheck(5, 0, 25, 10);
+assert.equal(criticalFailure.margin, -18);
 assert.equal(criticalFailure.outcome, 'critical_failure');
 
-const natural1PartialMargin = resolveSkillCheck(5, 50, 50, 1);
-assert.equal(natural1PartialMargin.margin, -9);
-assert.equal(natural1PartialMargin.outcome, 'critical_failure');
+const natural1AlwaysCritical = resolveSkillCheck(10, 100, 1, 1);
+assert.equal(natural1AlwaysCritical.outcome, 'critical_failure');
 
-const criticalSuccess = resolveSkillCheck(10, 100, 100, 20);
-assert.equal(criticalSuccess.margin, 10);
+const criticalSuccess = resolveSkillCheck(10, 100, 20, 20);
+assert.equal(criticalSuccess.finalScore, 32);
+assert.equal(criticalSuccess.margin, 12);
 assert.equal(criticalSuccess.outcome, 'critical_success');
 
 const maxSkillStillRollDependent = [1, 20].map((d20) =>
-  resolveSkillCheck(10, 100, 100, d20).outcome
+  resolveSkillCheck(10, 100, 20, d20).outcome
 );
-assert.deepEqual(maxSkillStillRollDependent, ['critical_failure', 'critical_success']);
+assert.equal(maxSkillStillRollDependent[0], 'critical_failure');
+assert.equal(maxSkillStillRollDependent[1], 'critical_success');
 
-assert.throws(() => resolveSkillCheck(5, 50, 50, 0));
-assert.throws(() => resolveSkillCheck(5, 50, 50, 21));
+assert.throws(() => resolveSkillCheck(5, 50, 15, 0));
+assert.throws(() => resolveSkillCheck(5, 50, 15, 21));
+
+// Progression economy audit.
+const progressionChar = { ...auditCharacter, level: 1, baseSpecial: { ...neutralSpecial }, effectiveSpecial: { ...neutralSpecial }, backgroundId: 'hunter' };
+assert.equal(getStartingSkillPoints(progressionChar), 13);
+assert.equal(getSkillPointsPerLevel(progressionChar), 6);
+assert.equal(getTotalSkillPointsEarned(progressionChar), 13);
+assert.equal(getSkillTrainingCostPerPoint(49), 1);
+assert.equal(getSkillTrainingCostPerPoint(50), 2);
+assert.equal(getSkillTrainingCostPerPoint(74), 2);
+assert.equal(getSkillTrainingCostPerPoint(75), 3);
+assert.equal(getSkillTrainingCostPerPoint(89), 3);
+assert.equal(getSkillTrainingCostPerPoint(90), 4);
+assert.equal(getSkillTrainingCostPerPoint(100), 4);
+
+const freeBackgroundChar = { ...progressionChar, backgroundId: 'none', level: 2 };
+assert.equal(getSkillPointsPerLevel(freeBackgroundChar), 8);
+assert.equal(getTotalSkillPointsEarned(freeBackgroundChar), 21);
+
+const int10Level20 = { ...progressionChar, level: 20, baseSpecial: { ...neutralSpecial, INT: 10 }, effectiveSpecial: { ...neutralSpecial, INT: 10 } };
+assert.equal(getTotalSkillPointsEarned(int10Level20), 189);
+
+const int5Level20 = { ...progressionChar, level: 20, baseSpecial: { ...neutralSpecial, INT: 5 }, effectiveSpecial: { ...neutralSpecial, INT: 5 } };
+assert.equal(getTotalSkillPointsEarned(int5Level20), 127);
 
 // Regression tests for archetype preset creation and field preservation
 assert.equal(ARCHETYPE_PRESETS.length, 8, '8 archetype presets must be defined');
 
 // Verify 22 skills metadata completeness
-assert.equal(SKILL_DEFINITIONS.length, 22, 'Must have exactly 22 skill definitions');
+assert.equal(SKILL_DEFINITIONS.length, 23, 'Must have exactly 23 skill definitions');
 for (const skill of SKILL_DEFINITIONS) {
   assert.ok(skill.nameRu && skill.nameRu.trim().length > 0, `Skill ${skill.id} must have non-empty nameRu`);
   assert.ok(skill.description && skill.description.trim().length > 10, `Skill ${skill.id} must have detailed description`);
@@ -572,7 +591,7 @@ assert.equal(BACKGROUND_DEFINITIONS.length, 8, 'Must have 8 backgrounds');
 for (const bg of BACKGROUND_DEFINITIONS) {
   assert.ok(!bg.descriptionRu.includes('Пустош'), `${bg.id} must not use word 'Пустошь'`);
   assert.ok(bg.descriptionRu.length > 30, `${bg.id} must have rich personal backstory`);
-  assert.ok(SKILL_DEFINITIONS.some((s) => s.id === bg.coreSkill), `${bg.id} coreSkill must be valid 22-skill`);
+  if (bg.coreSkill) assert.ok(SKILL_DEFINITIONS.some((s) => s.id === bg.coreSkill), `${bg.id} coreSkill must be valid 23-skill`);
   assert.ok(FEAT_DEFINITIONS.some((f) => f.id === bg.recommendedFeat), `${bg.id} recommendedFeat must exist in FEAT_DEFINITIONS`);
 }
 
