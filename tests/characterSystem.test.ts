@@ -388,7 +388,6 @@ assert.equal(
 // A neutral 15-point skill can be specialized substantially, but low-INT
 // characters should not reach mastery through one skill alone.
 const neutralBase = 15;
-const neutralSkillCharacter = progressionCharacter(20, 5, 'hunter');
 assert.equal(calculateSkillValue('firearms', progressionCharacter(1, 5, 'hunter'), neutralSpecial, []), neutralBase);
 assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 60), 55);
 assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 85), 115);
