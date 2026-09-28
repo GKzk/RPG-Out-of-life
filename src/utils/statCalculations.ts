@@ -321,10 +321,17 @@ export function getTotalSkillPointsSpent(
   character: Character,
   effectiveSpecial: SpecialStats
 ): number {
-  return SKILL_DEFINITIONS.reduce(
-    (total, skill) => total + getSkillTrainingCost(skill.id, character, effectiveSpecial, calculateSkillValue(skill.id, character, effectiveSpecial)),
-    0
-  );
+  return SKILL_DEFINITIONS.reduce((total, skill) => {
+    const invested = character.skillPointsInvested[skill.id] || 0;
+    if (invested <= 0) return total;
+    const base = calculateSkillValue(
+      skill.id,
+      { ...character, skillPointsInvested: { ...character.skillPointsInvested, [skill.id]: 0 } },
+      effectiveSpecial
+    );
+    const target = Math.min(100, base + invested);
+    return total + getSkillTrainingCost(skill.id, character, effectiveSpecial, target);
+  }, 0);
 }
 
 export function getStartingSkillPoints(character: Character): number {
