@@ -349,25 +349,25 @@ assert.deepEqual(nikita.taggedSkills, ['search', 'navigation', 'firearms']);
 
 // 1. SEARCH: Canonical resolveSkillCheck replacing survival in ruins scavenging
 // Formula: Base = Attribute (PER) * 4 + Skill * 0.6. DC = 45.
-const lowSearchCheck = resolveSkillCheck(3, 10, 45, 10); // Base = 3*4 + 6 = 18. Margin = 18 - 45 = -27
+const lowSearchCheck = resolveSkillCheck(3, 10, 15, 10);
 assert.equal(lowSearchCheck.outcome, 'critical_failure');
 
-const midSearchCheck = resolveSkillCheck(5, 50, 45, 10); // Base = 5*4 + 30 = 50. Margin = 50 - 45 = +5
+const midSearchCheck = resolveSkillCheck(5, 50, 15, 13);
 assert.equal(midSearchCheck.outcome, 'success');
 
-const partialSearchCheck = resolveSkillCheck(5, 30, 45, 10); // Base = 20 + 18 = 38. Margin = 38 - 45 = -7
+const partialSearchCheck = resolveSkillCheck(5, 30, 15, 10);
 assert.equal(partialSearchCheck.outcome, 'partial');
 
-const critSearchCheck = resolveSkillCheck(8, 70, 45, 20); // Natural 20 + margin > 0
+const critSearchCheck = resolveSkillCheck(8, 70, 15, 20);
 assert.equal(critSearchCheck.outcome, 'critical_success');
 
 // 2. STEALTH: Ruins ambush avoidance
 // DC = 50. Governing attribute = AGI.
-const highStealthAvoidsAmbush = resolveSkillCheck(8, 70, 50, 10); // Base = 32 + 42 = 74. Margin = +24
+const highStealthAvoidsAmbush = resolveSkillCheck(8, 70, 18, 10);
 assert.equal(highStealthAvoidsAmbush.outcome, 'success');
 assert.ok(highStealthAvoidsAmbush.margin >= 0, 'High stealth succeeds and avoids ambush');
 
-const lowStealthCaughtInAmbush = resolveSkillCheck(2, 10, 50, 5); // Base = 8 + 6 = 14, RollMod = -5. Final = 9. Margin = -41
+const lowStealthCaughtInAmbush = resolveSkillCheck(2, 10, 18, 1);
 assert.equal(lowStealthCaughtInAmbush.outcome, 'critical_failure');
 
 // 3. SURVIVAL: Scale hunger and thirst accumulation rate
@@ -386,7 +386,7 @@ assert.equal(calculateSurvivalConsumptionRate(10, -50, false), 10);
 
 // 4. NAVIGATION: Travel hours determined by resolveSkillCheck (DC 45, PER)
 const getTravelHours = (per: number, navSkill: number, d20: number): number => {
-  const check = resolveSkillCheck(per, navSkill, 45, d20);
+  const check = resolveSkillCheck(per, navSkill, 15, d20);
   if (check.outcome === 'critical_success') return 1;
   if (check.outcome === 'success') return 2;
   if (check.outcome === 'partial') return 3;
@@ -460,10 +460,10 @@ const crowBonus = getPetHandlingBonus('crow', 100);
 assert.equal(crowBonus.searchBonus, 17); // aerial scout spots hidden caches
 
 // 8. ATHLETICS: Physical obstacle clearance check (DC 50, STR)
-const strongAthletics = resolveSkillCheck(7, 60, 50, 10); // Base = 28 + 36 = 64. Margin = +14
+const strongAthletics = resolveSkillCheck(7, 60, 15, 10);
 assert.equal(strongAthletics.outcome, 'success');
 
-const weakAthletics = resolveSkillCheck(2, 10, 50, 10); // Base = 8 + 6 = 14. Margin = -36
+const weakAthletics = resolveSkillCheck(2, 10, 15, 1);
 assert.equal(weakAthletics.outcome, 'critical_failure');
 
 // ---------------------------------------------------------------------------
