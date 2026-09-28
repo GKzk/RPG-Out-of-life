@@ -571,9 +571,15 @@ export const CharacterCreation: React.FC = () => {
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-[#262c28] space-y-1.5">
-                    <div className="text-[10px] text-[#c95a4f]">
-                      Стартовый навык: <span className="font-semibold text-[#ded9ce]">{coreSkillDef?.nameRu || item.coreSkill} — обязателен</span>
-                    </div>
+                    {item.coreSkill ? (
+                      <div className="text-[10px] text-[#c95a4f]">
+                        Профильный навык: <span className="font-semibold text-[#ded9ce]">{coreSkillDef?.nameRu}</span>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-[#8f9891]">
+                        Профильного навыка нет — все три Tagged-навыка выбираете сами.
+                      </div>
+                    )}
                     {recFeatDef && (
                       <div className="text-[10px] text-[#858e87]">
                         Рекомендуемый фит: <span className="text-[#aeb5ad]">{recFeatDef.nameRu}</span>
