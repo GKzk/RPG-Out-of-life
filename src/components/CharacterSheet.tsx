@@ -4,6 +4,7 @@ import { SpecialAttribute } from '../types/game';
 import { getLckThreatMin } from '../utils/characterSystem';
 import { getActiveAntiSynergies } from '../utils/statCalculations';
 import { FEAT_DEFINITIONS } from '../data/feats';
+import { getXpForLevel, getXpForNextLevel } from '../utils/progression';
 import {
   ShieldAlert,
   User,
@@ -31,11 +32,17 @@ const SPECIAL_LABELS: Record<SpecialAttribute, { nameRu: string; desc: string }>
 };
 
 export const CharacterSheet: React.FC = () => {
-  const { character, effectiveSpecial, derivedStats } = useGame();
+  const { character, effectiveSpecial, derivedStats, pendingFeatChoices, chooseFeat } = useGame();
 
   if (!character) return null;
 
   const activeAntiSynergies = getActiveAntiSynergies(character.baseSpecial);
+  const currentLevelXp = getXpForLevel(character.level);
+  const nextLevelXp = getXpForNextLevel(character.level);
+  const xpIntoLevel = Math.max(0, character.xp - currentLevelXp);
+  const xpSpan = nextLevelXp === null ? 1 : Math.max(1, nextLevelXp - currentLevelXp);
+  const xpProgressPct = nextLevelXp === null ? 100 : Math.min(100, Math.round((xpIntoLevel / xpSpan) * 100));
+  const availableFeats = FEAT_DEFINITIONS.filter((feat) => !character.feats.includes(feat.id));
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 font-mono text-amber-300 space-y-6">
@@ -54,7 +61,10 @@ export const CharacterSheet: React.FC = () => {
             </div>
             <p className="text-xs text-neutral-400 mt-0.5">{character.background}</p>
             <div className="text-[11px] text-amber-500/80 mt-1 font-mono">
-              Опыт (XP): {character.xp} / {character.level * 250}
+              Опыт (XP): {character.xp}{nextLevelXp === null ? ' / МАКС.' : ` / ${nextLevelXp}`}
+            </div>
+            <div className="mt-1.5 w-full max-w-xs h-1.5 bg-neutral-800 rounded overflow-hidden">
+              <div className="h-full bg-amber-500 transition-all" style={{ width: `${xpProgressPct}%` }} />
             </div>
           </div>
         </div>
@@ -91,6 +101,37 @@ export const CharacterSheet: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {pendingFeatChoices > 0 && (
+        <div className="bg-amber-950/30 border border-amber-500/60 p-5 rounded-lg space-y-4 shadow-lg shadow-amber-950/20">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-amber-300 uppercase tracking-wider">НОВАЯ НАГРАДА ЗА УРОВЕНЬ</h2>
+              <p className="text-xs text-neutral-400 mt-1">
+                Выберите Фит. Выбор постоянный и не тратит очки навыков.
+              </p>
+            </div>
+            <span className="text-xs font-bold text-amber-300 border border-amber-500/40 px-2 py-1 rounded">
+              Выборов: {pendingFeatChoices}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {availableFeats.map((feat) => (
+              <button
+                key={feat.id}
+                onClick={() => chooseFeat(feat.id)}
+                className="text-left bg-neutral-950 border border-neutral-800 hover:border-amber-500/60 p-3 rounded transition-colors"
+              >
+                <div className="font-bold text-amber-200 text-sm">{feat.nameRu}</div>
+                <div className="text-[11px] text-neutral-400 mt-1">{feat.description}</div>
+                <div className="text-[10px] text-emerald-400 mt-2">Плюсы: {feat.prosRu.join(' | ')}</div>
+                <div className="text-[10px] text-red-400 mt-1">Минусы: {feat.consRu.join(' | ')}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: SPECIAL Grid & Anti-Synergies */}
