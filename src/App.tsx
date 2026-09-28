@@ -13,15 +13,17 @@ import { CombatLogConsole } from './components/CombatLogConsole';
 type ActiveTab = 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer';
 
 const MainAppContent: React.FC = () => {
-  const { character, combatState } = useGame();
+  const { character, combatState, pendingFeatChoices } = useGame();
   const [activeTab, setActiveTab] = useState<ActiveTab>('character');
 
   // Switch tab automatically when combat starts
   React.useEffect(() => {
     if (combatState.inCombat) {
       setActiveTab('combat');
+    } else if (pendingFeatChoices > 0) {
+      setActiveTab('character');
     }
-  }, [combatState.inCombat]);
+  }, [combatState.inCombat, pendingFeatChoices]);
 
   if (!character) {
     return <CharacterCreation />;
