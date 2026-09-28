@@ -35,6 +35,7 @@ import { getPetHandlingBonus } from '../utils/companionSystem';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
 import { ENEMY_DATABASE } from '../data/enemies';
+import { SKILL_DEFINITIONS } from '../data/skills';
 import {
   getLevelForXp,
   isPerkLevel,
