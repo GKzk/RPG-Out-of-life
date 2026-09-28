@@ -35,6 +35,13 @@ import { getPetHandlingBonus } from '../utils/companionSystem';
 import { FEAT_DEFINITIONS } from '../data/feats';
 import { ITEM_DATABASE } from '../data/items';
 import { ENEMY_DATABASE } from '../data/enemies';
+import {
+  getLevelForXp,
+  getXpForLevel,
+  getXpToNextLevel,
+  isPerkLevel,
+  MAX_LEVEL,
+} from '../utils/progression';
 
 interface GameContextType {
   character: Character | null;
@@ -84,7 +91,10 @@ interface GameContextType {
 
   // Level Up & Points Allocation
   investSkillPoint: (skillId: SkillName) => void;
+  addExperience: (amount: number, reasonRu?: string) => void;
+  chooseFeat: (featId: string) => void;
   addFeat: (featId: string) => void;
+  pendingFeatChoices: number;
   addLogMessage: (textRu: string, type?: CombatLogEntry['type']) => void;
   resetGame: () => void;
 }
@@ -111,6 +121,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [gameTimeHours, setGameTimeHours] = useState<number>(8); // 08:00 AM
   const [gameDay, setGameDay] = useState<number>(1);
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
+  const [pendingFeatChoices, setPendingFeatChoices] = useState<number>(0);
 
   const [combatState, setCombatState] = useState<CombatState>({
     inCombat: false,
@@ -711,17 +722,64 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const addExperience = (amount: number, reasonRu = 'Получен опыт') => {
+    if (!character || !Number.isFinite(amount) || amount <= 0) return;
+
+    const gained = Math.floor(amount);
+    const oldLevel = character.level;
+    const newXp = Math.max(0, character.xp + gained);
+    const newLevel = getLevelForXp(newXp);
+    const levelsGained = Math.max(0, newLevel - oldLevel);
+
+    // Derived HP is level-dependent. A level-up grants the increase to max HP,
+    // but does not fully heal the character.
+    const oldMaxHp = calculateDerivedStats(character, effectiveSpecial, inventory).maxHp;
+    const leveledCharacter = { ...character, level: newLevel, xp: newXp };
+    const newMaxHp = calculateDerivedStats(leveledCharacter, effectiveSpecial, inventory).maxHp;
+    const hpGain = Math.max(0, newMaxHp - oldMaxHp);
+
+    if (levelsGained > 0) {
+      let newPending = pendingFeatChoices;
+      for (let level = oldLevel + 1; level <= newLevel; level++) {
+        if (isPerkLevel(level)) newPending += 1;
+      }
+      setPendingFeatChoices(newPending);
+
+      const levelText = newLevel === MAX_LEVEL
+        ? `Достигнут максимальный уровень ${MAX_LEVEL}.`
+        : `Достигнут уровень ${newLevel}!`;
+      addLogMessage(
+        `[LEVEL UP] ${levelText} +${hpGain} к максимуму HP. ` +
+        `Доступно SP: ${getXpToNextLevel(newLevel, newXp) === 0 && newLevel < MAX_LEVEL ? 'проверяется' : 'по таблице навыков'}.`,
+        'heal'
+      );
+
+      if (newPending > pendingFeatChoices) {
+        addLogMessage(
+          `Новая награда за уровень: доступен выбор Фита. Осталось выбрать: ${newPending}.`,
+          'heal'
+        );
+      }
+    }
+
+    const finalHp = Math.min(newMaxHp, Math.max(1, character.currentHp + hpGain));
+    setCharacter({
+      ...leveledCharacter,
+      currentHp: finalHp,
+      currentAp: Math.min(leveledCharacter.currentAp, newMaxHp > oldMaxHp ? derivedStats.maxAp : leveledCharacter.currentAp),
+    });
+
+    addLogMessage(`[XP] +${gained} XP — ${reasonRu}. Всего: ${newXp} XP.`, 'info');
+  };
+
   const endCombat = (won: boolean) => {
     if (won && combatState.enemy && character) {
       const xpGained = combatState.enemy.xpValue;
-      const newXp = character.xp + xpGained;
-      addLogMessage(`[ПОБЕДА] Враг повержен! Получено +${xpGained} XP.`, 'heal');
+      addExperience(xpGained, `победа над: ${combatState.enemy.nameRu}`);
 
       // Random caps & ammo reward
       const caps = Math.floor(Math.random() * 35) + 10;
       addLogMessage(`В карманах врага найдено ${caps} крышек.`, 'info');
-
-      setCharacter({ ...character, xp: newXp });
     } else if (!won) {
       addLogMessage(`Вы сбежали из боя или были поражены...`, 'hazard');
     }
@@ -1037,20 +1095,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addLogMessage(`Навык ${skillId} повышен до ${currentValue + 1}. Потрачено ${cost} SP.`, 'info');
   };
 
+  const chooseFeat = (featId: string) => {
+    if (!character || pendingFeatChoices <= 0 || character.feats.includes(featId)) return;
+    const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
+    if (!feat) return;
+
+    setCharacter({
+      ...character,
+      feats: [...character.feats, featId],
+    });
+    setPendingFeatChoices((prev) => Math.max(0, prev - 1));
+    addLogMessage(`Получен новый Фит: ${feat.nameRu}!`, 'heal');
+  };
+
+  // Legacy-compatible helper. New progression rewards should use chooseFeat().
   const addFeat = (featId: string) => {
     if (!character || character.feats.includes(featId)) return;
     setCharacter({
       ...character,
       feats: [...character.feats, featId],
     });
-    const feat = FEAT_DEFINITIONS.find((f) => f.id === featId);
-    addLogMessage(`Получен новый Фит: ${feat?.nameRu || featId}!`, 'heal');
   };
 
   const resetGame = () => {
     setCharacter(null);
     setInventory([]);
     setCombatLog([]);
+    setPendingFeatChoices(0);
   };
 
   return (
@@ -1083,7 +1154,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         performPlayerMove,
         passPlayerCombatTurn,
         investSkillPoint,
+        addExperience,
+        chooseFeat,
         addFeat,
+        pendingFeatChoices,
         addLogMessage,
         resetGame,
       }}
