@@ -440,27 +440,19 @@ export function calculateHitChance(
   hasHeavyStrikerFeat: boolean,
   hasSniperEyeFeat: boolean
 ): number {
-  let baseChance = 50 + (attackerSkillVal / 2) + (attackerPerception * 3) - (defenderEvasion * 3);
+  if (weaponRange === 'melee' && distance !== 'melee') return 0;
 
-  // Distance vs Weapon Range match penalties
-  if (weaponRange === 'melee' && distance !== 'melee') {
-    return 0; // cannot hit melee from afar
-  }
+  let attackModifier = (attackerPerception - 5) + getSkillModifier(attackerSkillVal);
 
-  if (distance === 'long' && weaponRange === 'close') {
-    baseChance -= 35;
-  }
-  if (distance === 'close' && weaponRange === 'long') {
-    baseChance -= 20;
-  }
+  if (distance === 'long' && weaponRange === 'close') attackModifier -= 5;
+  if (distance === 'close' && weaponRange === 'long') attackModifier -= 3;
+  if (hasHeavyStrikerFeat) attackModifier -= 3;
+  if (hasSniperEyeFeat && (distance === 'medium' || distance === 'long')) attackModifier += 5;
 
-  if (hasHeavyStrikerFeat) {
-    baseChance -= 15;
+  let hits = 0;
+  for (let d20 = 1; d20 <= 20; d20++) {
+    if (d20 === 1) continue;
+    if (d20 === 20 || d20 + attackModifier >= defenderEvasion) hits++;
   }
-
-  if (hasSniperEyeFeat && (distance === 'medium' || distance === 'long')) {
-    baseChance += 25;
-  }
-
-  return Math.max(5, Math.min(95, Math.round(baseChance)));
+  return Math.round((hits / 20) * 100);
 }
