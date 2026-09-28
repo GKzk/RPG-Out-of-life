@@ -337,6 +337,29 @@ assert.equal(level1Hp, 50);
 assert.equal(level20Hp, 126);
 assert.ok(level20Hp > level1Hp);
 
+// Core progression economy: XP -> levels -> SP -> specialization.
+// At level 20 the canonical SP budgets are 85 / 127 / 189 for INT 1 / 5 / 10.
+assert.equal(getTotalSkillPointsEarned(1, 1, 'none'), 9);
+assert.equal(getTotalSkillPointsEarned(20, 1, 'none'), 85);
+assert.equal(getTotalSkillPointsEarned(20, 5, 'none'), 127);
+assert.equal(getTotalSkillPointsEarned(20, 10, 'none'), 189);
+assert.equal(getTotalSkillPointsEarned(20, 10, 'none') - getTotalSkillPointsEarned(20, 10, 'none'), 0);
+
+// No-background is a progression modifier, not a mandatory skill.
+assert.equal(getTotalSkillPointsEarned(20, 5, 'none') - getTotalSkillPointsEarned(20, 5, 'hunter'), 38);
+
+// A neutral 15-point skill can be specialized substantially, but low-INT
+// characters should not reach mastery through one skill alone.
+const neutralBase = 15;
+assert.equal(calculateSkillValue('firearms', neutralSpecial, {}, []), neutralBase);
+assert.equal(getSkillTrainingCost(15, 60), 45);
+assert.equal(getSkillTrainingCost(15, 85), 70);
+assert.equal(getSkillTrainingCost(15, 100), 85);
+assert.ok(getSkillTrainingCost(15, 85) <= getTotalSkillPointsEarned(20, 1, 'hunter'));
+assert.ok(getSkillTrainingCost(15, 100) > getTotalSkillPointsEarned(20, 1, 'hunter'));
+assert.ok(getSkillTrainingCost(15, 100) > getTotalSkillPointsEarned(20, 5, 'hunter'));
+assert.ok(getSkillTrainingCost(15, 100) <= getTotalSkillPointsEarned(20, 10, 'hunter'));
+
 // Regression tests for archetype preset creation and field preservation
 assert.equal(ARCHETYPE_PRESETS.length, 8, '8 archetype presets must be defined');
 
