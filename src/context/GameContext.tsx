@@ -37,7 +37,6 @@ import { ITEM_DATABASE } from '../data/items';
 import { ENEMY_DATABASE } from '../data/enemies';
 import {
   getLevelForXp,
-  getXpForLevel,
   getXpToNextLevel,
   isPerkLevel,
   MAX_LEVEL,
