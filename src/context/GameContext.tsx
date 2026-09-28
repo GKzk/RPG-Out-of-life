@@ -21,6 +21,7 @@ import {
   rollD20,
   resolveSkillCheck,
   getSkillTrainingCostPerPoint,
+  getTrainingSpecial,
 } from '../utils/statCalculations';
 import {
   getAttributeMod,
@@ -984,10 +985,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const skillDef = SKILL_DEFINITIONS.find((s) => s.id === skillId);
     if (!skillDef) return;
 
+    const trainingSpecial = getTrainingSpecial(character);
     const baseSkill = calculateSkillValue(
       skillId,
       { ...character, skillPointsInvested: { ...character.skillPointsInvested, [skillId]: 0 } },
-      effectiveSpecial
+      trainingSpecial
     );
     const currentValue = Math.min(100, baseSkill + currentInvested);
     if (currentValue >= 100) {
@@ -1010,7 +1012,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const base = calculateSkillValue(
         id as SkillName,
         { ...character, skillPointsInvested: { ...character.skillPointsInvested, [id as SkillName]: 0 } },
-        effectiveSpecial
+        trainingSpecial
       );
       let value = base;
       for (let i = 0; i < invested && value < 100; i++) {
