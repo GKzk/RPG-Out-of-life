@@ -37,7 +37,6 @@ import { ITEM_DATABASE } from '../data/items';
 import { ENEMY_DATABASE } from '../data/enemies';
 import {
   getLevelForXp,
-  getXpToNextLevel,
   isPerkLevel,
   MAX_LEVEL,
 } from '../utils/progression';
@@ -748,8 +747,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? `Достигнут максимальный уровень ${MAX_LEVEL}.`
         : `Достигнут уровень ${newLevel}!`;
       addLogMessage(
-        `[LEVEL UP] ${levelText} +${hpGain} к максимуму HP. ` +
-        `Доступно SP: ${getXpToNextLevel(newLevel, newXp) === 0 && newLevel < MAX_LEVEL ? 'проверяется' : 'по таблице навыков'}.`,
+        `[LEVEL UP] ${levelText} +${hpGain} к максимуму HP. Очки навыков доступны на экране навыков.`,
         'heal'
       );
 
