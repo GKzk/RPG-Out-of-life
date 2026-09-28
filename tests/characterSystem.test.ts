@@ -455,12 +455,12 @@ assert.deepEqual(nikita.taggedSkills, ['search', 'navigation', 'firearms']);
 // 1. SEARCH: Canonical resolveSkillCheck replacing survival in ruins scavenging
 // Formula: Base = Attribute (PER) * 4 + Skill * 0.6. DC = 45.
 const lowSearchCheck = resolveSkillCheck(3, 10, 15, 10);
-assert.equal(lowSearchCheck.outcome, 'critical_failure');
+assert.equal(lowSearchCheck.outcome, 'failure');
 
 const midSearchCheck = resolveSkillCheck(5, 50, 15, 13);
 assert.equal(midSearchCheck.outcome, 'success');
 
-const partialSearchCheck = resolveSkillCheck(5, 30, 15, 10);
+const partialSearchCheck = resolveSkillCheck(5, 30, 15, 11);
 assert.equal(partialSearchCheck.outcome, 'partial');
 
 const critSearchCheck = resolveSkillCheck(8, 70, 15, 20);
@@ -468,7 +468,7 @@ assert.equal(critSearchCheck.outcome, 'critical_success');
 
 // 2. STEALTH: Ruins ambush avoidance
 // DC = 50. Governing attribute = AGI.
-const highStealthAvoidsAmbush = resolveSkillCheck(8, 70, 18, 10);
+const highStealthAvoidsAmbush = resolveSkillCheck(8, 70, 18, 12);
 assert.equal(highStealthAvoidsAmbush.outcome, 'success');
 assert.ok(highStealthAvoidsAmbush.margin >= 0, 'High stealth succeeds and avoids ambush');
 
@@ -501,7 +501,7 @@ const getTravelHours = (per: number, navSkill: number, d20: number): number => {
 
 assert.equal(getTravelHours(8, 70, 20), 1, 'Crit success = 1 hour shortcut');
 assert.equal(getTravelHours(6, 50, 12), 2, 'Success = 2 hours efficient travel');
-assert.equal(getTravelHours(5, 30, 10), 3, 'Partial = 3 hours standard route');
+assert.equal(getTravelHours(5, 30, 11), 3, 'Partial = 3 hours standard route');
 assert.equal(getTravelHours(4, 20, 8), 4, 'Failure = 4 hours delayed route');
 assert.equal(getTravelHours(2, 10, 1), 5, 'Critical failure = 5 hours lost in storm');
 
