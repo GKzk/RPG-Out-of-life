@@ -236,7 +236,7 @@ export const InventoryView: React.FC = () => {
           </div>
         ) : (
           <div className="p-8 text-center text-xs text-neutral-500">
-            Ваш рюкзак пуст. Отправляйтесь исследовать руины Пустоши!
+            Ваш рюкзак пуст. Отправляйтесь исследовать руины и старые объекты!
           </div>
         )}
       </div>
