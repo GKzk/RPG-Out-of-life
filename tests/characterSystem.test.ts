@@ -326,22 +326,6 @@ for (let level = 1; level < MAX_LEVEL; level++) {
   assert.ok(getXpForLevel(level + 1) > getXpForLevel(level), 'XP thresholds must strictly increase');
 }
 
-// Skill-point income must be monotonic and consistent at every level for INT 1–10.
-for (let int = 1; int <= 10; int++) {
-  let previousBudget = 0;
-  for (let level = 1; level <= MAX_LEVEL; level++) {
-    const budget = getTotalSkillPointsEarned(progressionCharacter(level, int, 'hunter'));
-    assert.ok(budget >= previousBudget, `SP budget must not decrease (INT=${int}, level=${level})`);
-    if (level > 1) {
-      assert.equal(
-        budget - previousBudget,
-        4 + Math.floor(int / 2),
-        `per-level SP income mismatch (INT=${int}, level=${level})`
-      );
-    }
-    previousBudget = budget;
-  }
-}
 assert.equal(isPerkLevel(2), false);
 assert.equal(isPerkLevel(3), true);
 assert.equal(isPerkLevel(18), true);
@@ -372,6 +356,23 @@ const progressionCharacter = (level: number, int: number, backgroundId = 'hunter
   backgroundId,
   skillPointsInvested: Object.fromEntries(Object.keys(auditCharacter.skillPointsInvested).map((id) => [id, 0])),
 });
+
+// Skill-point income must be monotonic and consistent at every level for INT 1–10.
+for (let int = 1; int <= 10; int++) {
+  let previousBudget = 0;
+  for (let level = 1; level <= MAX_LEVEL; level++) {
+    const budget = getTotalSkillPointsEarned(progressionCharacter(level, int, 'hunter'));
+    assert.ok(budget >= previousBudget, `SP budget must not decrease (INT=${int}, level=${level})`);
+    if (level > 1) {
+      assert.equal(
+        budget - previousBudget,
+        4 + Math.floor(int / 2),
+        `per-level SP income mismatch (INT=${int}, level=${level})`
+      );
+    }
+    previousBudget = budget;
+  }
+}
 
 assert.equal(getTotalSkillPointsEarned(progressionCharacter(1, 1, 'hunter')), 9);
 assert.equal(getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')), 85);
