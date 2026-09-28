@@ -365,9 +365,9 @@ assert.equal(
 const neutralBase = 15;
 const neutralSkillCharacter = progressionCharacter(20, 5, 'hunter');
 assert.equal(calculateSkillValue('firearms', progressionCharacter(1, 5, 'hunter'), neutralSpecial, []), neutralBase);
-assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 60), 45);
-assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 85), 70);
-assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100), 85);
+assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 60), 55);
+assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 85), 115);
+assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100), 175);
 assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 1, 'hunter'), neutralSpecial, 85) <= getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')));
 assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 1, 'hunter'), neutralSpecial, 100) > getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')));
 assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100) <= getTotalSkillPointsEarned(progressionCharacter(20, 5, 'hunter')));
