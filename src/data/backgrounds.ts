@@ -5,7 +5,7 @@ export interface BackgroundDefinition {
   titleRu: string;
   subtitleRu: string;
   descriptionRu: string;
-  coreSkill: SkillName;
+  coreSkill?: SkillName;
   recommendedFeat: string;
 }
 
@@ -71,7 +71,6 @@ export const BACKGROUND_DEFINITIONS: BackgroundDefinition[] = [
     titleRu: 'Без предыстории',
     subtitleRu: 'Свободный выбор пути',
     descriptionRu: 'Никто в общине не успел решить за вас, кем вы должны стать. У вас нет груза чужих ожиданий и профессиональных рамок — ваш характер и навыки формируются здесь и сейчас.',
-    coreSkill: 'survival',
     recommendedFeat: 'hard_life',
   },
 ];
