@@ -393,9 +393,13 @@ assert.equal(calculateSkillValue('firearms', progressionCharacter(1, 5, 'hunter'
 assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 60), 55);
 assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 85), 115);
 assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100), 170);
-assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 1, 'hunter'), neutralSpecial, 85) <= getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')));
+assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 1, 'hunter'), neutralSpecial, 75) <= getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')));
+assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 1, 'hunter'), neutralSpecial, 85) > getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')));
 assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 1, 'hunter'), neutralSpecial, 100) > getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')));
-assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100) <= getTotalSkillPointsEarned(progressionCharacter(20, 5, 'hunter')));
+assert.equal(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 89), 127);
+assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 89) <= getTotalSkillPointsEarned(progressionCharacter(20, 5, 'hunter')));
+assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 5, 'hunter'), neutralSpecial, 100) > getTotalSkillPointsEarned(progressionCharacter(20, 5, 'hunter')));
+assert.ok(getSkillTrainingCost('firearms', progressionCharacter(20, 10, 'hunter'), specialistSpecial, 100) <= getTotalSkillPointsEarned(progressionCharacter(20, 10, 'hunter')));
 
 // Regression tests for archetype preset creation and field preservation
 assert.equal(ARCHETYPE_PRESETS.length, 8, '8 archetype presets must be defined');
