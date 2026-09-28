@@ -159,7 +159,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({ activeTab, setActiveTab })
           }`}
         >
           <Compass className="w-4 h-4" />
-          <span>Пустошь & Поиск</span>
+          <span>Исследование & Поиск</span>
         </button>
       </nav>
     </header>
