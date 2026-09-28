@@ -625,8 +625,8 @@ const charOneEyed = createTestChar('one_eyed');
 assert.equal(charOneEyed.effectiveSpecial.PER, 4, 'One-Eyed must reduce PER by 1');
 const baseSurvival = calculateSkillValue('survival', createTestChar(), createTestChar().effectiveSpecial);
 const oneEyedSurvival = calculateSkillValue('survival', charOneEyed, charOneEyed.effectiveSpecial);
-// One-Eyed gives +5 to survival, while PER decreased by 1 (secondaryAttr for survival, loses 2 points): net +3
-assert.equal(oneEyedSurvival, baseSurvival + 3, 'One-Eyed net survival bonus: +5 skill bonus - 2 from PER loss');
+// One-Eyed gives +5 to survival, while PER is the secondary attribute and decreases the base by 1: net +4
+assert.equal(oneEyedSurvival, baseSurvival + 4, 'One-Eyed net survival bonus: +5 skill bonus - 1 from secondary PER loss');
 const oneEyedDef = FEAT_DEFINITIONS.find((f) => f.id === 'one_eyed')!;
 assert.equal(oneEyedDef.rangedAccuracyBonus, 10, 'One-Eyed must grant +10 ranged accuracy');
 
