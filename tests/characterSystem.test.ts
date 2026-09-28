@@ -354,7 +354,7 @@ const progressionCharacter = (level: number, int: number, backgroundId = 'hunter
   xp: getXpForLevel(level),
   baseSpecial: { ...auditCharacter.baseSpecial, INT: int },
   backgroundId,
-  skillPointsInvested: Object.fromEntries(Object.keys(auditCharacter.skillPointsInvested).map((id) => [id, 0])),
+  skillPointsInvested: Object.fromEntries(Object.keys(auditCharacter.skillPointsInvested).map((id) => [id, 0])) as Record<SkillName, number>,
 });
 
 // Skill-point income must be monotonic and consistent at every level for INT 1–10.
