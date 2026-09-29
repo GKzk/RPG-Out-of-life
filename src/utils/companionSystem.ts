@@ -61,6 +61,20 @@ export function getPetHandlingBonus(
         combatDamageBonus: 0,
         foodPreservationPct: 0,
       };
+    case 'ferret':
+      return {
+        searchBonus: 4 + masteryBonus * 2,
+        stealthBonus: 5 + masteryBonus * 3,
+        combatDamageBonus: 0,
+        foodPreservationPct: 0,
+      };
+    case 'boar':
+      return {
+        searchBonus: 2 + masteryBonus,
+        stealthBonus: 0,
+        combatDamageBonus: 3 + masteryBonus * 2,
+        foodPreservationPct: 0,
+      };
     default:
       return { searchBonus: 0, stealthBonus: 0, combatDamageBonus: 0, foodPreservationPct: 0 };
   }

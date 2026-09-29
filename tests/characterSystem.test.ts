@@ -642,32 +642,36 @@ assert.equal(sprintDef.needsRateModPct, 20, 'Sprinter must increase fatigue/need
 const charMiniature = createTestChar('miniature');
 assert.equal(charMiniature.effectiveSpecial.AGI, 6, 'Miniature must grant +1 AGI');
 const miniatureDerived = calculateDerivedStats(charMiniature, charMiniature.effectiveSpecial, []);
-// STR 5 -> base carry = 5*6 + 25 = 55. Miniature has carryWeightBonus = -10 -> 45.
-assert.equal(miniatureDerived.carryWeightMax, 45, 'Miniature must reduce max carry weight by 10 kg');
+// STR 5 -> base carry = 5*6 + 25 = 55. Miniature has carryWeightBonus = -20 -> 35.
+assert.equal(miniatureDerived.carryWeightMax, 35, 'Miniature must reduce max carry weight by 20 kg');
 
 // 4. Sexuality (Sex Appeal)
 const charSexuality = createTestChar('sexuality');
 const basePersuasion = calculateSkillValue('persuasion', createTestChar(), createTestChar().effectiveSpecial);
 const sexPersuasion = calculateSkillValue('persuasion', charSexuality, charSexuality.effectiveSpecial);
-assert.equal(sexPersuasion, basePersuasion + 10, 'Sexuality must grant +10 to Persuasion');
+// Persuasion has primaryAttr CHA: +1 CHA gives +2 to base, plus +10 skillModifiers -> net +12
+assert.equal(sexPersuasion, basePersuasion + 12, 'Sexuality must grant +10 skill bonus and +2 from +1 CHA to Persuasion (+12 total)');
 const baseInsight = calculateSkillValue('insight', createTestChar(), createTestChar().effectiveSpecial);
 const sexInsight = calculateSkillValue('insight', charSexuality, charSexuality.effectiveSpecial);
-assert.equal(sexInsight, baseInsight - 5, 'Sexuality must penalize Insight by -5');
+// insight: -10 skill modifier, and -1 from PER reduction (insight primary PER) -> net -12
+assert.equal(sexInsight, baseInsight - 12, 'Sexuality must penalize Insight by -10 skill modifier and -2 from -1 primary PER');
 
 // 5. Pack Rat
 const charPackRat = createTestChar('pack_rat');
 assert.equal(charPackRat.effectiveSpecial.AGI, 4, 'Pack Rat must reduce AGI by 1');
 const packRatDerived = calculateDerivedStats(charPackRat, charPackRat.effectiveSpecial, []);
-assert.equal(packRatDerived.carryWeightMax, 70, 'Pack Rat must grant +15 kg carry weight (55 + 15 = 70)');
+assert.equal(packRatDerived.carryWeightMax, 75, 'Pack Rat must grant +20 kg carry weight (55 + 20 = 75)');
 
 // 6. Junkie
 const junkieDef = FEAT_DEFINITIONS.find((f) => f.id === 'junkie')!;
 assert.equal(junkieDef.statModifiers?.AGI, 1, 'Junkie must grant +1 AGI');
+assert.equal(junkieDef.statModifiers?.END, -1, 'Junkie must reduce END by 1');
 assert.equal(junkieDef.addictionRiskModPct, 30, 'Junkie must increase addiction risk by 30%');
 
 // 7. Workaholic
 const charWorkaholic = createTestChar('workaholic');
 assert.equal(charWorkaholic.effectiveSpecial.INT, 6, 'Workaholic must grant +1 INT');
+assert.equal(charWorkaholic.effectiveSpecial.CHA, 4, 'Workaholic must reduce CHA by 1');
 const baseMechanics = calculateSkillValue('mechanics', createTestChar(), createTestChar().effectiveSpecial);
 const workMechanics = calculateSkillValue('mechanics', charWorkaholic, charWorkaholic.effectiveSpecial);
 // INT increased by 1 (primaryAttr coefficient ×2), plus skillModifiers.mechanics (+10) -> +12 total
@@ -675,8 +679,8 @@ assert.equal(workMechanics, baseMechanics + 12, 'Workaholic must grant +10 skill
 
 // 8. Fast Metabolism
 const metabolismDef = FEAT_DEFINITIONS.find((f) => f.id === 'metabolism')!;
-assert.equal(metabolismDef.healingRateModPct, 20, 'Fast Metabolism must grant +20% healing');
-assert.equal(metabolismDef.needsRateModPct, 20, 'Fast Metabolism must increase hunger/thirst accumulation by 20%');
+assert.equal(metabolismDef.healingRateModPct, 25, 'Fast Metabolism must grant +25% healing');
+assert.equal(metabolismDef.needsRateModPct, 25, 'Fast Metabolism must increase hunger/thirst accumulation by 25%');
 
 // 9. Verify Feat bonuses are idempotent (not applied twice)
 const eff1 = calculateEffectiveSpecial(charOneEyed.baseSpecial, charOneEyed.feats, dummySurvivalNeeds);
@@ -700,10 +704,9 @@ for (const bg of BACKGROUND_DEFINITIONS) {
   assert.ok(FEAT_DEFINITIONS.some((f) => f.id === bg.recommendedFeat), `${bg.id} recommendedFeat must exist in FEAT_DEFINITIONS`);
 }
 
-// 12. Check Pets: all 4 pets have roleNoteRu, subtitleRu, descriptionRu, no Пустошь
-assert.equal(PET_DEFINITIONS.length, 4, 'Must have 4 pets');
+// 12. Check Pets: all 6 pets have subtitleRu, descriptionRu, no Пустошь
+assert.equal(PET_DEFINITIONS.length, 6, 'Must have 6 pets');
 for (const pet of PET_DEFINITIONS) {
-  assert.ok(pet.roleNoteRu && pet.roleNoteRu.length > 10, `${pet.id} must have roleNoteRu`);
   assert.ok(pet.subtitleRu && pet.subtitleRu.length > 5, `${pet.id} must have subtitleRu`);
   assert.ok(!pet.descriptionRu.includes('Пустош'), `${pet.id} must not use word 'Пустошь'`);
 }

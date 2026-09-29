@@ -62,7 +62,8 @@ interface GameContextType {
     gender?: 'male' | 'female',
     avatarId?: string,
     petId?: string,
-    backgroundId?: string
+    backgroundId?: string,
+    customSkillInvested?: Partial<Record<SkillName, number>>
   ) => void;
   loadPresetCharacter: (presetId: string, name?: string) => void;
 
@@ -173,32 +174,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     gender: 'male' | 'female' = 'male',
     avatarId = 'm1',
     petId = 'hound',
-    backgroundId = 'none'
+    backgroundId = 'none',
+    customSkillInvested?: Partial<Record<SkillName, number>>
   ) => {
     const initialSkillInvestments: Record<SkillName, number> = {
-      athletics: 0,
-      stealth: 0,
-      sleightOfHand: 0,
-      unarmed: 0,
-      melee: 0,
-      firearms: 0,
-      explosives: 0,
-      survival: 0,
-      search: 0,
-      navigation: 0,
-      insight: 0,
-      medicine: 0,
-      mechanics: 0,
-      electronics: 0,
-      science: 0,
-      crafting: 0,
-      persuasion: 0,
-      barter: 0,
-      deception: 0,
-      leadership: 0,
-      animalHandling: 0,
-      performance: 0,
-      energyWeapons: 0,
+      athletics: customSkillInvested?.athletics || 0,
+      stealth: customSkillInvested?.stealth || 0,
+      sleightOfHand: customSkillInvested?.sleightOfHand || 0,
+      unarmed: customSkillInvested?.unarmed || 0,
+      melee: customSkillInvested?.melee || 0,
+      firearms: customSkillInvested?.firearms || 0,
+      explosives: customSkillInvested?.explosives || 0,
+      survival: customSkillInvested?.survival || 0,
+      search: customSkillInvested?.search || 0,
+      navigation: customSkillInvested?.navigation || 0,
+      insight: customSkillInvested?.insight || 0,
+      medicine: customSkillInvested?.medicine || 0,
+      mechanics: customSkillInvested?.mechanics || 0,
+      electronics: customSkillInvested?.electronics || 0,
+      science: customSkillInvested?.science || 0,
+      crafting: customSkillInvested?.crafting || 0,
+      persuasion: customSkillInvested?.persuasion || 0,
+      barter: customSkillInvested?.barter || 0,
+      deception: customSkillInvested?.deception || 0,
+      leadership: customSkillInvested?.leadership || 0,
+      animalHandling: customSkillInvested?.animalHandling || 0,
+      performance: customSkillInvested?.performance || 0,
+      energyWeapons: customSkillInvested?.energyWeapons || 0,
     };
 
     const newChar: Character = {
@@ -482,7 +484,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       hoursTaken = 4;
       addLogMessage(
         `[НАВИГАЦИЯ: НЕУДАЧА] d20=${navRoll} (Margin ${navCheck.margin}). ` +
-        `Тропа оказалась завалена, блуждание по пустоши заняло 4 часа.`,
+        `Тропа оказалась завалена, блуждание по заброшенным секторам заняло 4 часа.`,
         'hazard'
       );
     } else {
