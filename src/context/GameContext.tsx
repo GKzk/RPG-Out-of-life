@@ -22,6 +22,7 @@ import {
   resolveSkillCheck,
   getSkillTrainingCostPerPoint,
   getStartingSkillPoints,
+  getTotalSkillPointsSpent,
   getTrainingSpecial,
   getSkillModifier,
 } from '../utils/statCalculations';
@@ -238,6 +239,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const derived = calculateDerivedStats(newChar, effSpec, []);
     newChar.currentHp = derived.maxHp;
     newChar.currentAp = derived.maxAp;
+
+    const startingSpSpent = getTotalSkillPointsSpent(newChar, effSpec);
+    const startingSpBudget = getStartingSkillPoints(newChar);
+    if (startingSpSpent > startingSpBudget) {
+      addLogMessage(`Создание персонажа отменено: вложено ${startingSpSpent} SP при доступном бюджете ${startingSpBudget} SP.`, 'hazard');
+      return;
+    }
 
     setCharacter(newChar);
 
