@@ -23,6 +23,7 @@ import {
   getSkillTrainingCostPerPoint,
   getTrainingSpecial,
   getSkillModifier,
+  getTotalSkillPointsEarned,
 } from '../utils/statCalculations';
 import {
   getAttributeMod,
@@ -31,8 +32,18 @@ import {
   applyDamageMitigation,
   calculateSurvivalConsumptionRate,
 } from '../utils/characterSystem';
-import { getPetHandlingBonus } from '../utils/companionSystem';
+import {
+  getPetHandlingBonus,
+  createInitialPetState,
+  resolveCompanionDamage,
+  stabilizeCompanion,
+  advanceCompanionBleedout,
+  resolveStabilizedMedicalProcedure,
+  canAttemptStabilizedProcedure,
+  CompanionRuntimeState,
+} from '../utils/companionSystem';
 import { FEAT_DEFINITIONS } from '../data/feats';
+import { PET_DEFINITIONS } from '../data/pets';
 import { ITEM_DATABASE } from '../data/items';
 import { ENEMY_DATABASE } from '../data/enemies';
 import { SKILL_DEFINITIONS } from '../data/skills';
@@ -95,6 +106,12 @@ interface GameContextType {
   chooseFeat: (featId: string) => void;
   addFeat: (featId: string) => void;
   pendingFeatChoices: number;
+  // Companion Lifecycle Actions
+  damagePet: (amount: number) => void;
+  stabilizePet: () => void;
+  treatPet: () => void;
+  markPetMissing: (reasonRu?: string) => void;
+
   addLogMessage: (textRu: string, type?: CombatLogEntry['type']) => void;
   resetGame: () => void;
 }
@@ -120,6 +137,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [gameTimeHours, setGameTimeHours] = useState<number>(8); // 08:00 AM
   const [gameDay, setGameDay] = useState<number>(1);
+  const [lastProvisionDay, setLastProvisionDay] = useState<number>(1);
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [pendingFeatChoices, setPendingFeatChoices] = useState<number>(0);
 
@@ -210,6 +228,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       backgroundId,
       background: background || 'Выживший из Развалин',
       petId,
+      petState: createInitialPetState(petId),
       level: 1,
       xp: 0,
       baseSpecial,
@@ -274,6 +293,61 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setGameTimeHours(newHours);
     setGameDay(newDay);
+
+    // Companion Daily Upkeep: 1 food + 1 water per day if companion is active and present
+    if (newDay > lastProvisionDay && character.petState && (character.petState.state === 'HEALTHY' || character.petState.state === 'DOWNED' || character.petState.state === 'STABILIZED')) {
+      const daysPassed = newDay - lastProvisionDay;
+      setLastProvisionDay(newDay);
+
+      const petDef = PET_DEFINITIONS.find((p) => p.id === character.petId);
+      const petName = petDef?.nameRu || 'Спутник';
+
+      // Deduct food & water for companion
+      let foodNeeded = daysPassed;
+      let waterNeeded = daysPassed;
+
+      setInventory((prevInv) => {
+        let currentInv = [...prevInv];
+
+        // 1. Deduct Food
+        for (let step = 0; step < foodNeeded; step++) {
+          const foodIdx = currentInv.findIndex((i) => i.item.consumableData?.hungerRestore && i.item.consumableData.hungerRestore > 0);
+          if (foodIdx >= 0) {
+            const item = currentInv[foodIdx];
+            if (item.quantity <= 1) {
+              currentInv.splice(foodIdx, 1);
+            } else {
+              currentInv[foodIdx] = { ...item, quantity: item.quantity - 1 };
+            }
+          } else {
+            addLogMessage(`Недостаточно еды для содержания ${petName}! Питомец голодает.`, 'hazard');
+            break;
+          }
+        }
+
+        // 2. Deduct Water
+        for (let step = 0; step < waterNeeded; step++) {
+          const waterIdx = currentInv.findIndex((i) => i.item.consumableData?.thirstRestore && i.item.consumableData.thirstRestore > 0);
+          if (waterIdx >= 0) {
+            const item = currentInv[waterIdx];
+            if (item.quantity <= 1) {
+              currentInv.splice(waterIdx, 1);
+            } else {
+              currentInv[waterIdx] = { ...item, quantity: item.quantity - 1 };
+            }
+          } else {
+            addLogMessage(`Недостаточно чистой или питьевой воды для ${petName}! Питомец страдает от жажды.`, 'hazard');
+            break;
+          }
+        }
+
+        return currentInv;
+      });
+
+      addLogMessage(`Наступил день ${newDay}. Выделен суточный рацион для спутника: ${petName}.`, 'info');
+    } else if (newDay > lastProvisionDay) {
+      setLastProvisionDay(newDay);
+    }
 
     // Update survival scales using Survival skill (governing END/PER) and Feat modifiers
     const survSkill = calculateSkillValue('survival', character, effectiveSpecial);
@@ -358,7 +432,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const searchSkill = calculateSkillValue('search', character, effectiveSpecial);
     const animalSkill = calculateSkillValue('animalHandling', character, effectiveSpecial);
-    const petBonus = getPetHandlingBonus(character.petId, animalSkill);
+    const petBonus = getPetHandlingBonus(character.petId, animalSkill, character.petState?.state);
 
     // Canonical search check: governing attribute PER, DC 45
     const searchRoll = rollD20();
@@ -889,12 +963,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       rawDamage = maxWeaponDice + rollWeaponDice + weaponFlat + attributeMod;
     }
 
-    // Pet assistance in combat (if pet is hound and animalHandling is trained)
+    // Pet assistance in combat (if pet is active and has combatDamageBonus)
     const animalSkill = calculateSkillValue('animalHandling', character, effectiveSpecial);
-    const petBonus = getPetHandlingBonus(character.petId, animalSkill);
+    const petBonus = getPetHandlingBonus(character.petId, animalSkill, character.petState?.state);
     if (petBonus.combatDamageBonus > 0) {
+      const petDef = PET_DEFINITIONS.find((p) => p.id === character.petId);
+      const petName = petDef?.nameRu || 'Спутник';
       rawDamage += petBonus.combatDamageBonus;
-      addLogMessage(`Пёс Байкал атаковал врага (+${petBonus.combatDamageBonus} урона)!`, 'hit');
+      addLogMessage(`${petName} атаковал врага (+${petBonus.combatDamageBonus} урона)!`, 'hit');
     }
 
     rawDamage = Math.max(1, rawDamage);
@@ -1031,8 +1107,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         enemyDefensiveStance: false,
       }));
 
-      // Refresh Player AP on new round start
-      setCharacter((prev) => (prev ? { ...prev, currentAp: derivedStats.maxAp } : null));
+      // Refresh Player AP on new round start & advance companion bleedout if downed
+      setCharacter((prev) => {
+        if (!prev) return null;
+        let updatedPet = prev.petState;
+        if (updatedPet && updatedPet.state === 'DOWNED') {
+          updatedPet = advanceCompanionBleedout(updatedPet);
+          const petDef = PET_DEFINITIONS.find((p) => p.id === prev.petId);
+          const petName = petDef?.nameRu || 'Спутник';
+          if (updatedPet.state === 'DEAD') {
+            addLogMessage(`[ГИБЕЛЬ] ${petName} скончался от потери крови!`, 'hazard');
+          } else {
+            addLogMessage(`[КРОВОТЕЧЕНИЕ] ${petName} истекает кровью! Осталось ${3 - updatedPet.downedRounds} раунда.`, 'hazard');
+          }
+        }
+        return {
+          ...prev,
+          petState: updatedPet,
+          currentAp: derivedStats.maxAp,
+        };
+      });
       addLogMessage(`=== Раунд ${combatState.round + 1}: Ваш ход! (AP Восстановлены) ===`, 'turn');
     }, 600);
   };
@@ -1058,10 +1152,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const cost = getSkillTrainingCostPerPoint(currentValue);
 
-    const totalEarned =
-      8 + character.baseSpecial.INT +
-      Math.max(0, character.level - 1) *
-        (4 + Math.floor(character.baseSpecial.INT / 2) + (character.backgroundId === 'none' ? 2 : 0));
+    const totalEarned = getTotalSkillPointsEarned(character);
 
     let spent = 0;
     for (const [id, invested] of Object.entries(character.skillPointsInvested)) {
@@ -1117,11 +1208,142 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  // Companion Lifecycle Actions
+  const damagePet = (amount: number) => {
+    if (!character || !character.petState) return;
+    const petDef = PET_DEFINITIONS.find((p) => p.id === character.petId);
+    const petName = petDef?.nameRu || 'Спутник';
+
+    if (character.petState.state === 'DEAD') {
+      addLogMessage(`${petName} уже погиб.`, 'hazard');
+      return;
+    }
+    if (character.petState.state === 'MISSING') {
+      addLogMessage(`${petName} пропал без вести и недоступен.`, 'hazard');
+      return;
+    }
+
+    const leadershipSkill = calculateSkillValue('leadership', character, effectiveSpecial);
+    const updated = resolveCompanionDamage(
+      character.petState.currentHp,
+      character.petState.maxHp,
+      amount,
+      leadershipSkill,
+      character.petId || 'hound'
+    );
+
+    setCharacter({
+      ...character,
+      petState: updated,
+    });
+
+    if (updated.state === 'DEAD') {
+      addLogMessage(`[ГИБЕЛЬ СПУТНИКА] ${petName} получил смертельный урон (${amount}) и погиб!`, 'hazard');
+    } else if (updated.state === 'DOWNED') {
+      addLogMessage(`[ТЯЖЁЛОЕ РАНЕНИЕ] ${petName} получил ${amount} урона и тяжело ранен! Требуется стабилизация (${3 - updated.downedRounds} раунда до гибели).`, 'hazard');
+    } else {
+      addLogMessage(`${petName} получил урон: ${amount} HP (осталось: ${updated.currentHp}/${updated.maxHp}).`, 'hit');
+    }
+  };
+
+  const stabilizePet = () => {
+    if (!character || !character.petState) return;
+    const petDef = PET_DEFINITIONS.find((p) => p.id === character.petId);
+    const petName = petDef?.nameRu || 'Спутник';
+
+    if (character.petState.state !== 'DOWNED') {
+      addLogMessage(`${petName} не находится в состоянии тяжёлого ранения.`, 'info');
+      return;
+    }
+
+    // Check medical item: stimpak
+    const hasMedItem = inventory.some((i) => i.item.id === 'stimpak' && i.quantity > 0);
+    if (!hasMedItem) {
+      addLogMessage(`Для стабилизации ${petName} необходим Стимулятор (Stimpak)!`, 'hazard');
+      return;
+    }
+
+    // Deduct stimpak
+    removeItemFromInventory('stimpak', 1);
+
+    const stabilized = stabilizeCompanion(character.petState, true);
+    setCharacter({
+      ...character,
+      petState: stabilized,
+    });
+
+    addLogMessage(`[СТАБИЛИЗАЦИЯ] Вы использовали Стимулятор и стабилизировали ${petName}! Кровотечение остановлено.`, 'heal');
+  };
+
+  const treatPet = () => {
+    if (!character || !character.petState) return;
+    const petDef = PET_DEFINITIONS.find((p) => p.id === character.petId);
+    const petName = petDef?.nameRu || 'Спутник';
+
+    if (character.petState.state !== 'STABILIZED') {
+      addLogMessage(`${petName} должен быть сначала стабилизирован.`, 'info');
+      return;
+    }
+
+    if (!canAttemptStabilizedProcedure(character.petState)) {
+      addLogMessage(`Исчерпан лимит медицинских процедур для ${petName}.`, 'hazard');
+      return;
+    }
+
+    const hasStim = inventory.some((i) => i.item.id === 'stimpak' && i.quantity > 0);
+    if (!hasStim) {
+      addLogMessage(`Для медицинской операции над ${petName} необходим Стимулятор (Stimpak)!`, 'hazard');
+      return;
+    }
+
+    // Medical skill check
+    const medSkill = calculateSkillValue('medicine', character, effectiveSpecial);
+    const d20 = rollD20();
+    const totalRoll = d20 + Math.floor(medSkill / 10);
+
+    // Consume medical item
+    removeItemFromInventory('stimpak', 1);
+
+    const procedureResult = resolveStabilizedMedicalProcedure(character.petState, totalRoll, true);
+    setCharacter({
+      ...character,
+      petState: procedureResult,
+    });
+
+    if (procedureResult.state === 'HEALTHY') {
+      addLogMessage(`[ВОССТАНОВЛЕНИЕ] Операция успешна (d20=${d20}, итог=${totalRoll})! ${petName} вернулся в строй (1 HP).`, 'heal');
+    } else {
+      addLogMessage(`Попытка лечения ${petName} не увенчалась успехом (попытка ${procedureResult.stabilizationAttempts}/3).`, 'info');
+    }
+  };
+
+  const markPetMissing = (reasonRu = 'отбился от отряда при переходе') => {
+    if (!character || !character.petState) return;
+    const petDef = PET_DEFINITIONS.find((p) => p.id === character.petId);
+    const petName = petDef?.nameRu || 'Спутник';
+
+    if (character.petState.state === 'DEAD') {
+      addLogMessage(`${petName} уже погиб, пропажа невозможна.`, 'hazard');
+      return;
+    }
+
+    setCharacter({
+      ...character,
+      petState: {
+        ...character.petState,
+        state: 'MISSING',
+      },
+    });
+
+    addLogMessage(`[СПУТНИК ПРОПАЛ] ${petName} ${reasonRu}. Его бонусы и содержание временно отключены.`, 'hazard');
+  };
+
   const resetGame = () => {
     setCharacter(null);
     setInventory([]);
     setCombatLog([]);
     setPendingFeatChoices(0);
+    setLastProvisionDay(1);
   };
 
   return (
@@ -1158,6 +1380,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         chooseFeat,
         addFeat,
         pendingFeatChoices,
+        damagePet,
+        stabilizePet,
+        treatPet,
+        markPetMissing,
         addLogMessage,
         resetGame,
       }}

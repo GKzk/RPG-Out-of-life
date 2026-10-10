@@ -99,6 +99,7 @@ export interface Character {
   backgroundId: string;
   background: string;
   petId?: string;
+  petState?: import('../utils/companionSystem').CompanionRuntimeState | null;
   level: number;
   xp: number;
   baseSpecial: SpecialStats;

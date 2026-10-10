@@ -1,6 +1,7 @@
 import { ArchetypePreset, Character, SkillName, SpecialAttribute, SpecialStats } from '../types/game';
 import { BACKGROUND_DEFINITIONS } from '../data/backgrounds';
 import { calculateEffectiveSpecial, calculateDerivedStats } from './statCalculations';
+import { createInitialPetState } from './companionSystem';
 
 export const POINT_BUY_BUDGET = 40;
 export const TOTAL_SPECIAL_POINTS = 40;
@@ -231,6 +232,7 @@ export function createCharacterFromPreset(
     backgroundId: preset.backgroundId,
     background: bg?.titleRu || preset.subtitleRu || 'Без предыстории',
     petId: preset.petId || 'hound',
+    petState: createInitialPetState(preset.petId || 'hound'),
     level: 1,
     xp: 0,
     baseSpecial: preset.special,

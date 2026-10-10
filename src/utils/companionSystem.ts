@@ -1,6 +1,7 @@
-export type CompanionState = 'HEALTHY' | 'DOWNED' | 'STABILIZED' | 'DEAD';
+export type CompanionState = 'HEALTHY' | 'DOWNED' | 'STABILIZED' | 'DEAD' | 'MISSING';
 
 export interface CompanionRuntimeState {
+  petId: string;
   state: CompanionState;
   currentHp: number;
   maxHp: number;
@@ -30,9 +31,10 @@ export interface PetHandlingBonus {
 
 export function getPetHandlingBonus(
   petId: string | undefined | null,
-  animalHandlingSkill: number
+  animalHandlingSkill: number,
+  petState?: CompanionState | null
 ): PetHandlingBonus {
-  if (!petId || petId === 'none') {
+  if (!petId || petId === 'none' || (petState && petState !== 'HEALTHY')) {
     return { searchBonus: 0, stealthBonus: 0, combatDamageBonus: 0, foodPreservationPct: 0 };
   }
 
@@ -80,22 +82,35 @@ export function getPetHandlingBonus(
   }
 }
 
+export function createInitialPetState(petId: string | undefined | null): CompanionRuntimeState | null {
+  if (!petId || petId === 'none') return null;
+  return {
+    petId,
+    state: 'HEALTHY',
+    currentHp: 20,
+    maxHp: 20,
+    downedRounds: 0,
+    stabilizationAttempts: 0,
+  };
+}
+
 export function resolveCompanionDamage(
   currentHp: number,
   maxHp: number,
   damage: number,
-  leadershipSkill: number = 0
+  leadershipSkill: number = 0,
+  petId: string = 'hound'
 ): CompanionRuntimeState {
   const mitigation = calculateLeadershipDefenseBonus(leadershipSkill);
   const effectiveDamage = Math.max(0, damage - mitigation);
   const finalHp = currentHp - effectiveDamage;
   if (finalHp <= -maxHp) {
-    return { state: 'DEAD', currentHp: finalHp, maxHp, downedRounds: 0, stabilizationAttempts: 0 };
+    return { petId, state: 'DEAD', currentHp: finalHp, maxHp, downedRounds: 0, stabilizationAttempts: 0 };
   }
   if (finalHp <= 0) {
-    return { state: 'DOWNED', currentHp: finalHp, maxHp, downedRounds: 0, stabilizationAttempts: 0 };
+    return { petId, state: 'DOWNED', currentHp: finalHp, maxHp, downedRounds: 0, stabilizationAttempts: 0 };
   }
-  return { state: 'HEALTHY', currentHp: finalHp, maxHp, downedRounds: 0, stabilizationAttempts: 0 };
+  return { petId, state: 'HEALTHY', currentHp: finalHp, maxHp, downedRounds: 0, stabilizationAttempts: 0 };
 }
 
 export function stabilizeCompanion(

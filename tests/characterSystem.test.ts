@@ -35,7 +35,7 @@ import {
   calculateSurvivalConsumptionRate,
   calculateBarterPrice,
 } from '../src/utils/characterSystem';
-import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getSkillTrainingCost, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned } from '../src/utils/statCalculations';
+import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getSkillTrainingCost, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned, getTotalPointCost } from '../src/utils/statCalculations';
 import { SkillName, Character, SpecialStats } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
 import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
@@ -289,7 +289,8 @@ assert.equal(getSkillTrainingCostPerPoint(100), 4);
 
 const freeBackgroundChar = { ...progressionChar, backgroundId: 'none', level: 2 };
 assert.equal(getSkillPointsPerLevel(freeBackgroundChar), 8);
-assert.equal(getTotalSkillPointsEarned(freeBackgroundChar), 21);
+// Level 1: 8 + 5 (INT) + 2 (none) = 15. Level 2: + 8 = 23.
+assert.equal(getTotalSkillPointsEarned(freeBackgroundChar), 23);
 
 const int10Level20 = { ...progressionChar, level: 20, baseSpecial: { ...neutralSpecial, INT: 10 }, effectiveSpecial: { ...neutralSpecial, INT: 10 } };
 assert.equal(getTotalSkillPointsEarned(int10Level20), 189);
@@ -379,11 +380,11 @@ assert.equal(getTotalSkillPointsEarned(progressionCharacter(20, 1, 'hunter')), 8
 assert.equal(getTotalSkillPointsEarned(progressionCharacter(20, 5, 'hunter')), 127);
 assert.equal(getTotalSkillPointsEarned(progressionCharacter(20, 10, 'hunter')), 189);
 
-// No-background is a progression modifier, not a mandatory skill.
+// No-background is a progression modifier (+2 SP on level 1 + 2 SP per level-up = +40 SP by level 20).
 assert.equal(
   getTotalSkillPointsEarned(progressionCharacter(20, 5, 'none')) -
   getTotalSkillPointsEarned(progressionCharacter(20, 5, 'hunter')),
-  38
+  40
 );
 
 // A neutral 15-point skill can be specialized substantially, but low-INT
@@ -711,5 +712,48 @@ for (const pet of PET_DEFINITIONS) {
   assert.ok(!pet.descriptionRu.includes('Пустош'), `${pet.id} must not use word 'Пустошь'`);
 }
 
+// 13. Audit all 8 Archetypes
+assert.equal(ARCHETYPE_PRESETS.length, 8, 'Must have exactly 8 archetypes');
+for (const preset of ARCHETYPE_PRESETS) {
+  assert.ok(preset.titleRu && preset.titleRu.length > 2, `${preset.id} must have titleRu`);
+  assert.ok(preset.gender === 'male' || preset.gender === 'female', `${preset.id} must have valid gender`);
+  assert.ok(BACKGROUND_DEFINITIONS.some((b) => b.id === preset.backgroundId), `${preset.id} must have valid backgroundId`);
+  assert.ok(FEAT_DEFINITIONS.some((f) => f.id === preset.startingFeat), `${preset.id} must have valid startingFeat`);
+  assert.equal(preset.taggedSkills.length, 3, `${preset.id} must have exactly 3 tagged skills`);
+  assert.equal(new Set(preset.taggedSkills).size, 3, `${preset.id} tagged skills must be unique`);
+
+  const bg = BACKGROUND_DEFINITIONS.find((b) => b.id === preset.backgroundId)!;
+  if (bg.coreSkill) {
+    assert.ok(preset.taggedSkills.includes(bg.coreSkill), `${preset.id} must include background mandatory coreSkill ${bg.coreSkill}`);
+  }
+
+  // SPECIAL audit: each stat between 1 and 10, total exactly 40
+  const stats = Object.values(preset.special);
+  assert.equal(stats.length, 7, `${preset.id} must have all 7 SPECIAL stats`);
+  for (const [attr, val] of Object.entries(preset.special)) {
+    assert.ok(val >= 1 && val <= 10, `${preset.id} ${attr} must be in [1, 10], got ${val}`);
+  }
+  const totalCost = getTotalPointCost(preset.special);
+  assert.equal(totalCost, 40, `${preset.id} total SPECIAL points must equal 40, got ${totalCost}`);
+}
+
+// 14. Unified SP Calculation Audit (Lvl 1 & Progression, none vs others)
+const charHunter = createTestChar(undefined, { INT: 6 });
+charHunter.backgroundId = 'hunter';
+assert.equal(getStartingSkillPoints(charHunter), 8 + 6, 'Hunter with INT 6 gets 14 starting SP at level 1');
+assert.equal(getSkillPointsPerLevel(charHunter), 4 + Math.floor(6 / 2), 'Hunter gets 7 SP per level');
+assert.equal(getTotalSkillPointsEarned(charHunter), 14, 'Hunter at level 1 has 14 total earned SP');
+
+const charNone = createTestChar(undefined, { INT: 6 });
+charNone.backgroundId = 'none';
+assert.equal(getStartingSkillPoints(charNone), 8 + 6 + 2, 'Background "none" with INT 6 gets +2 bonus (16 starting SP) at level 1');
+assert.equal(getSkillPointsPerLevel(charNone), 4 + Math.floor(6 / 2) + 2, 'Background "none" gets +2 bonus (9 SP per level)');
+assert.equal(getTotalSkillPointsEarned(charNone), 16, 'Background "none" at level 1 has 16 total earned SP');
+
+// Level 2 test
+charNone.level = 2;
+assert.equal(getTotalSkillPointsEarned(charNone), 16 + 9, 'Background "none" at level 2 has 25 total earned SP (16 + 9)');
+
 console.log('23-skill mathematical audit, archetype, feat balance & gameplay integration tests: PASS');
+
 

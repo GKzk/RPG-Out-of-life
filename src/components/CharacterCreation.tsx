@@ -7,6 +7,8 @@ import {
   getActiveAntiSynergies,
   calculateSkillBaseValue,
   getSkillTrainingCostPerPoint,
+  getStartingSkillPoints,
+  calculateDerivedStats,
 } from '../utils/statCalculations';
 import { getAttributeMod, getMaxAP } from '../utils/characterSystem';
 import { ARCHETYPE_PRESETS } from '../data/archetypes';
@@ -110,21 +112,27 @@ export const CharacterCreation: React.FC = () => {
 
   // 2. Total SP pool for Level 1 (8 + INT + background bonus)
   const totalSpBudget = useMemo(() => {
-    return 8 + special.INT + (backgroundId === 'none' ? 2 : 0);
-  }, [special.INT, backgroundId]);
+    return getStartingSkillPoints({
+      baseSpecial: special,
+      backgroundId,
+    } as any);
+  }, [special, backgroundId]);
 
   // 3. Derived stats preview (AP, Carry, HP)
   const statPreview = useMemo(() => {
-    const feat = FEAT_DEFINITIONS.find((f) => f.id === startingFeat);
-    const apBonus = feat?.apBonus || 0;
-    const carryBonus = feat?.carryWeightBonus || 0;
-    const str = effectiveSpecial.STR;
-    const agi = effectiveSpecial.AGI;
-    const end = effectiveSpecial.END;
+    const dummyChar = {
+      level: 1,
+      feats: startingFeat ? [startingFeat] : [],
+      equippedArmorId: undefined,
+      currentHp: 999,
+      currentAp: 99,
+      survival: { hunger: 0, thirst: 0, fatigue: 0, radiation: 0, infection: 0, addictions: {} },
+    } as any;
+    const derived = calculateDerivedStats(dummyChar, effectiveSpecial, []);
     return {
-      hp: 40 + end * 5,
-      ap: getMaxAP(agi) + apBonus,
-      carry: str * 6 + 25 + carryBonus,
+      hp: derived.maxHp,
+      ap: derived.maxAp,
+      carry: derived.carryWeightMax,
     };
   }, [effectiveSpecial, startingFeat]);
 
@@ -214,8 +222,12 @@ export const CharacterCreation: React.FC = () => {
     }
   };
 
+  const isSpecialValid = remainingPoints === 0;
+  const isTaggedValid = taggedSkills.length === 3 && new Set(taggedSkills).size === 3 && (!backgroundSkill || taggedSkills.includes(backgroundSkill));
+  const isSpValid = remainingSp >= 0;
+
   const handleFinishCreation = () => {
-    if (taggedSkills.length !== 3 || (backgroundSkill && !taggedSkills.includes(backgroundSkill)) || remainingPoints < 0) return;
+    if (!isSpecialValid || !isTaggedValid || !isSpValid) return;
     createCharacter(
       name.trim() || 'Алекс',
       background.titleRu,
@@ -784,7 +796,7 @@ export const CharacterCreation: React.FC = () => {
 
             <button
               onClick={handleFinishCreation}
-              disabled={remainingPoints < 0 || taggedSkills.length !== 3 || (!!backgroundSkill && !taggedSkills.includes(backgroundSkill))}
+              disabled={!isSpecialValid || !isTaggedValid || !isSpValid}
               className="w-full md:w-auto min-w-[280px] rounded-xl bg-[#a9473f] hover:bg-[#bc5148] disabled:bg-[#3a312f] disabled:text-[#706964] text-white font-semibold py-3.5 px-6 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-950/30"
             >
               Подтвердить персонажа и начать
