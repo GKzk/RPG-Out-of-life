@@ -354,8 +354,10 @@ export function getTotalSkillPointsSpent(
   }, 0);
 }
 
-export function getStartingSkillPoints(character: Character): number {
-  return 8 + Math.max(1, Math.min(10, character.baseSpecial.INT));
+export function getStartingSkillPoints(character: Pick<Character, 'baseSpecial' | 'backgroundId'>): number {
+  const int = Math.max(1, Math.min(10, character.baseSpecial.INT));
+  const backgroundBonus = character.backgroundId === 'none' ? 2 : 0;
+  return 8 + int + backgroundBonus;
 }
 
 export function getSkillPointsPerLevel(character: Character): number {
