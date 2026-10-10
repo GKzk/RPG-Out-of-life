@@ -7,6 +7,7 @@ import {
   getActiveAntiSynergies,
   calculateSkillBaseValue,
   getSkillTrainingCostPerPoint,
+  getStartingSkillPoints,
 } from '../utils/statCalculations';
 import { getAttributeMod, getMaxAP } from '../utils/characterSystem';
 import { ARCHETYPE_PRESETS } from '../data/archetypes';
@@ -71,6 +72,7 @@ export const CharacterCreation: React.FC = () => {
   const [showArchetypes, setShowArchetypes] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [activeSpecialModal, setActiveSpecialModal] = useState<SpecialAttribute | null>(null);
+  const [creationError, setCreationError] = useState<string | null>(null);
 
   const [special, setSpecial] = useState<SpecialStats>({
     STR: 5, PER: 5, END: 5, CHA: 5, INT: 5, AGI: 5, LCK: 5,
@@ -98,6 +100,9 @@ export const CharacterCreation: React.FC = () => {
         eff[attr] += feat.statModifiers![attr] || 0;
       });
     }
+    (Object.keys(eff) as SpecialAttribute[]).forEach((attr) => {
+      eff[attr] = Math.max(1, Math.min(10, eff[attr]));
+    });
     return eff;
   }, [special, startingFeat]);
 
@@ -108,10 +113,8 @@ export const CharacterCreation: React.FC = () => {
   const backgroundSkill = background.coreSkill;
   const backgroundSkillName = SKILL_DEFINITIONS.find((s) => s.id === backgroundSkill)?.nameRu ?? backgroundSkill;
 
-  // 2. Total SP pool for Level 1 (8 + INT + background bonus)
-  const totalSpBudget = useMemo(() => {
-    return 8 + special.INT + (backgroundId === 'none' ? 2 : 0);
-  }, [special.INT, backgroundId]);
+  // One canonical starting-SP formula is shared with character progression.
+  const totalSpBudget = getStartingSkillPoints({ baseSpecial: special, backgroundId });
 
   // 3. Derived stats preview (AP, Carry, HP)
   const statPreview = useMemo(() => {
@@ -122,7 +125,7 @@ export const CharacterCreation: React.FC = () => {
     const agi = effectiveSpecial.AGI;
     const end = effectiveSpecial.END;
     return {
-      hp: 40 + end * 5,
+      hp: Math.floor((25 + end * 4 + str) * (feat?.id === 'glass_cannon' ? 0.75 : 1)),
       ap: getMaxAP(agi) + apBonus,
       carry: str * 6 + 25 + carryBonus,
     };
@@ -215,7 +218,23 @@ export const CharacterCreation: React.FC = () => {
   };
 
   const handleFinishCreation = () => {
-    if (taggedSkills.length !== 3 || (backgroundSkill && !taggedSkills.includes(backgroundSkill)) || remainingPoints < 0) return;
+    if (remainingPoints !== 0) {
+      setCreationError('Распределите ровно 40 очков SPECIAL перед созданием персонажа.');
+      return;
+    }
+    if (taggedSkills.length !== 3 || new Set(taggedSkills).size !== 3 || (backgroundSkill && !taggedSkills.includes(backgroundSkill))) {
+      setCreationError('Выберите ровно три разных профильных навыка и обязательно включите навык предыстории.');
+      return;
+    }
+    if (remainingSp < 0) {
+      setCreationError('Превышен бюджет стартовых очков обучения. Уменьшите вложения в навыки.');
+      return;
+    }
+    if (AVATAR_OPTIONS.find((avatar) => avatar.id === avatarId)?.gender !== gender || !PET_DEFINITIONS.some((pet) => pet.id === petId) || !FEAT_DEFINITIONS.some((feat) => feat.id === startingFeat)) {
+      setCreationError('Некоторые выбранные параметры недействительны. Проверьте внешность, спутника и фит.');
+      return;
+    }
+    setCreationError(null);
     createCharacter(
       name.trim() || 'Алекс',
       background.titleRu,
@@ -625,7 +644,7 @@ export const CharacterCreation: React.FC = () => {
 
             <div className="mt-3 pt-3 border-t border-[#2d3530] flex items-center justify-between text-[11px] text-[#727b74]">
               <span>Пул обучения 1-го уровня: {spentSp} / {totalSpBudget} SP</span>
-              <span>Шкала стоимости: &lt;50: 1 SP · 50+: 2 SP · 75+: 3 SP</span>
+              <span>Стоимость обучения: до 50 — 1 SP · 50–74 — 2 SP · 75–89 — 3 SP · 90+ — 4 SP</span>
             </div>
           </section>
         </div>
@@ -767,7 +786,7 @@ export const CharacterCreation: React.FC = () => {
             <div className="text-xs text-[#89918b]">
               {remainingPoints !== 0 && (
                 <span className="text-[#d9776d] font-semibold mr-3">
-                  Осталось нераспределенных очков SPECIAL: {remainingPoints}
+                  {remainingPoints > 0 ? 'Распределите оставшиеся очки SPECIAL: ' : 'Превышен бюджет SPECIAL на: '}{Math.abs(remainingPoints)}
                 </span>
               )}
               {taggedSkills.length !== 3 && (
@@ -775,16 +794,18 @@ export const CharacterCreation: React.FC = () => {
                   Нужно выбрать ровно 3 навыка ({taggedSkills.length}/3)
                 </span>
               )}
-              {remainingPoints === 0 && taggedSkills.length === 3 && (
-                <span className="text-[#8ec59b] font-medium">
-                  ✓ Все параметры настроены корректно. Персонаж готов к пути.
-                </span>
+              {remainingSp < 0 && (
+                <span className="text-[#d9776d] font-semibold mr-3">Превышен бюджет обучения на {-remainingSp} SP</span>
               )}
+              {remainingPoints === 0 && remainingSp >= 0 && taggedSkills.length === 3 && (!backgroundSkill || taggedSkills.includes(backgroundSkill)) && (
+                <span className="text-[#8ec59b] font-medium">✓ Все параметры настроены корректно. Персонаж готов к пути.</span>
+              )}
+              {creationError && <div role="alert" className="mt-2 text-[#f08a7e] font-semibold">{creationError}</div>}
             </div>
 
             <button
               onClick={handleFinishCreation}
-              disabled={remainingPoints < 0 || taggedSkills.length !== 3 || (!!backgroundSkill && !taggedSkills.includes(backgroundSkill))}
+              disabled={remainingPoints !== 0 || remainingSp < 0 || taggedSkills.length !== 3 || new Set(taggedSkills).size !== 3 || (!!backgroundSkill && !taggedSkills.includes(backgroundSkill))}
               className="w-full md:w-auto min-w-[280px] rounded-xl bg-[#a9473f] hover:bg-[#bc5148] disabled:bg-[#3a312f] disabled:text-[#706964] text-white font-semibold py-3.5 px-6 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-950/30"
             >
               Подтвердить персонажа и начать

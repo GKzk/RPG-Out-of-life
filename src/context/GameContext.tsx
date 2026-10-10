@@ -21,6 +21,8 @@ import {
   rollD20,
   resolveSkillCheck,
   getSkillTrainingCostPerPoint,
+  getStartingSkillPoints,
+  getTotalSkillPointsSpent,
   getTrainingSpecial,
   getSkillModifier,
 } from '../utils/statCalculations';
@@ -177,6 +179,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     backgroundId = 'none',
     customSkillInvested?: Partial<Record<SkillName, number>>
   ) => {
+    const pointTotal = baseSpecial.STR + baseSpecial.PER + baseSpecial.END + baseSpecial.CHA + baseSpecial.INT + baseSpecial.AGI + baseSpecial.LCK;
+    const validSpecial = (Object.values(baseSpecial) as number[]).every((value) => Number.isInteger(value) && value >= 1 && value <= 10) && pointTotal === 40;
+    const selectedBackground = BACKGROUND_DEFINITIONS.find((item) => item.id === backgroundId);
+    const validTaggedSkills = taggedSkills.length === 3
+      && new Set(taggedSkills).size === 3
+      && taggedSkills.every((skill) => SKILL_DEFINITIONS.some((definition) => definition.id === skill))
+      && (!selectedBackground?.coreSkill || taggedSkills.includes(selectedBackground.coreSkill));
+    const validInvestments = Object.values(customSkillInvested ?? {}).every((value) => Number.isInteger(value) && (value ?? 0) >= 0);
+    if (!validSpecial || !validTaggedSkills || !validInvestments || !FEAT_DEFINITIONS.some((feat) => feat.id === startingFeatId) || !selectedBackground) {
+      addLogMessage('Создание персонажа отменено: некорректные SPECIAL, навыки, фит или предыстория.', 'hazard');
+      return;
+    }
+
     const initialSkillInvestments: Record<SkillName, number> = {
       athletics: customSkillInvested?.athletics || 0,
       stealth: customSkillInvested?.stealth || 0,
@@ -224,11 +239,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       equippedArmorId: 'vault_suit',
     };
 
-    // Calculate initial Max HP and AP
+    // Validate skill investments against the real skill caps before committing the character.
     const effSpec = calculateEffectiveSpecial(baseSpecial, newChar.feats, newChar.survival);
+    const overInvestedSkill = SKILL_DEFINITIONS.find((skill) => {
+      const invested = initialSkillInvestments[skill.id] || 0;
+      const baselineCharacter = {
+        ...newChar,
+        skillPointsInvested: { ...initialSkillInvestments, [skill.id]: 0 },
+      };
+      const baseValue = calculateSkillValue(skill.id, baselineCharacter, effSpec);
+      return invested > Math.max(0, 100 - baseValue);
+    });
+    if (overInvestedSkill) {
+      addLogMessage(`Создание персонажа отменено: превышен предел вложений в навык «${overInvestedSkill.nameRu}».`, 'hazard');
+      return;
+    }
+
     const derived = calculateDerivedStats(newChar, effSpec, []);
     newChar.currentHp = derived.maxHp;
     newChar.currentAp = derived.maxAp;
+
+    const startingSpSpent = getTotalSkillPointsSpent(newChar, effSpec);
+    const startingSpBudget = getStartingSkillPoints(newChar);
+    if (startingSpSpent > startingSpBudget) {
+      addLogMessage(`Создание персонажа отменено: вложено ${startingSpSpent} SP при доступном бюджете ${startingSpBudget} SP.`, 'hazard');
+      return;
+    }
 
     setCharacter(newChar);
 

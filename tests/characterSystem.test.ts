@@ -289,7 +289,8 @@ assert.equal(getSkillTrainingCostPerPoint(100), 4);
 
 const freeBackgroundChar = { ...progressionChar, backgroundId: 'none', level: 2 };
 assert.equal(getSkillPointsPerLevel(freeBackgroundChar), 8);
-assert.equal(getTotalSkillPointsEarned(freeBackgroundChar), 21);
+assert.equal(getStartingSkillPoints(freeBackgroundChar), 15, 'no-background bonus is included in starting SP');
+assert.equal(getTotalSkillPointsEarned(freeBackgroundChar), 23, 'starting SP uses the same background bonus as character creation');
 
 const int10Level20 = { ...progressionChar, level: 20, baseSpecial: { ...neutralSpecial, INT: 10 }, effectiveSpecial: { ...neutralSpecial, INT: 10 } };
 assert.equal(getTotalSkillPointsEarned(int10Level20), 189);
