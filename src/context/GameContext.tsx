@@ -21,6 +21,7 @@ import {
   rollD20,
   resolveSkillCheck,
   getSkillTrainingCostPerPoint,
+  getStartingSkillPoints,
   getTrainingSpecial,
   getSkillModifier,
 } from '../utils/statCalculations';
@@ -177,6 +178,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     backgroundId = 'none',
     customSkillInvested?: Partial<Record<SkillName, number>>
   ) => {
+    const pointTotal = baseSpecial.STR + baseSpecial.PER + baseSpecial.END + baseSpecial.CHA + baseSpecial.INT + baseSpecial.AGI + baseSpecial.LCK;
+    const validSpecial = (Object.values(baseSpecial) as number[]).every((value) => Number.isInteger(value) && value >= 1 && value <= 10) && pointTotal === 40;
+    const validTaggedSkills = taggedSkills.length === 3 && new Set(taggedSkills).size === 3 && taggedSkills.every((skill) => SKILL_DEFINITIONS.some((definition) => definition.id === skill));
+    if (!validSpecial || !validTaggedSkills || !FEAT_DEFINITIONS.some((feat) => feat.id === startingFeatId) || !BACKGROUND_DEFINITIONS.some((item) => item.id === backgroundId)) {
+      addLogMessage('Создание персонажа отменено: некорректные SPECIAL, навыки, фит или предыстория.', 'hazard');
+      return;
+    }
+
     const initialSkillInvestments: Record<SkillName, number> = {
       athletics: customSkillInvested?.athletics || 0,
       stealth: customSkillInvested?.stealth || 0,
