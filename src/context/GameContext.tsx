@@ -114,7 +114,11 @@ interface GameContextType {
 
   addLogMessage: (textRu: string, type?: CombatLogEntry['type']) => void;
   isPrologueActive: boolean;
+  prologueCompleted: boolean;
   completePrologue: () => void;
+  openPrologue: () => void;
+  unlockedLoreIds: string[];
+  unlockLoreArticle: (articleId: string) => void;
   resetGame: () => void;
 }
 
@@ -143,7 +147,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [pendingFeatChoices, setPendingFeatChoices] = useState<number>(0);
   const [isPrologueActive, setIsPrologueActive] = useState<boolean>(false);
-  const completePrologue = () => setIsPrologueActive(false);
+  const [prologueCompleted, setPrologueCompleted] = useState<boolean>(false);
+  const [unlockedLoreIds, setUnlockedLoreIds] = useState<string[]>([]);
+  const unlockLoreArticle = (articleId: string) => {
+    // Only story events should call this. The secret archive is never unlocked by a local UI toggle.
+    if (articleId === 'super_ai_dome') {
+      setUnlockedLoreIds((prev) => prev.includes(articleId) ? prev : [...prev, articleId]);
+    }
+  };
+  const completePrologue = () => {
+    setIsPrologueActive(false);
+    setPrologueCompleted(true);
+  };
+  const openPrologue = () => setIsPrologueActive(true);
 
   const [combatState, setCombatState] = useState<CombatState>({
     inCombat: false,
@@ -1352,6 +1368,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPendingFeatChoices(0);
     setLastProvisionDay(1);
     setIsPrologueActive(false);
+    setPrologueCompleted(false);
+    setUnlockedLoreIds([]);
   };
 
   return (
@@ -1366,7 +1384,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         gameTimeHours,
         gameDay,
         isPrologueActive,
+        prologueCompleted,
         completePrologue,
+        openPrologue,
+        unlockedLoreIds,
+        unlockLoreArticle,
         createCharacter,
         loadPresetCharacter,
         equipWeapon,

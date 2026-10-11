@@ -35,9 +35,10 @@ import {
   calculateSurvivalConsumptionRate,
   calculateBarterPrice,
 } from '../src/utils/characterSystem';
-import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getSkillTrainingCost, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned, getTotalPointCost } from '../src/utils/statCalculations';
+import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getSkillTrainingCost, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned, getTotalPointCost, getSkillModifier } from '../src/utils/statCalculations';
 import { SkillName, Character, SpecialStats } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
+import { CANON_LORE_ARTICLES, PROLOGUE_SCENES, getVisibleLoreArticles } from '../src/data/canonLore';
 import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
 import { FEAT_DEFINITIONS } from '../src/data/feats';
 import { BACKGROUND_DEFINITIONS } from '../src/data/backgrounds';
@@ -756,4 +757,15 @@ assert.equal(getTotalSkillPointsEarned(charNone), 16 + 9, 'Background "none" at 
 
 console.log('23-skill mathematical audit, archetype, feat balance & gameplay integration tests: PASS');
 
-
+// Prologue/lore integration regression checks.
+const publicLore = getVisibleLoreArticles();
+assert.equal(publicLore.some((article) => article.id === 'super_ai_dome'), false, 'secret lore is locked by default');
+assert.equal(publicLore.length, CANON_LORE_ARTICLES.filter((article) => !article.isSecret).length, 'public lore remains visible');
+const unlockedLore = getVisibleLoreArticles(['super_ai_dome']);
+assert.equal(unlockedLore.some((article) => article.id === 'super_ai_dome'), true, 'explicit story flag unlocks the secret archive');
+assert.equal(unlockedLore.length, publicLore.length + 1, 'unlocking one article does not reveal other secret entries');
+assert.deepEqual(PROLOGUE_SCENES.map((scene) => scene.difficulty + 8), [16, 18, 20, 19, 18], 'legacy prologue difficulties map locally to canonical check scale');
+for (let skill = 0; skill <= 100; skill++) {
+  assert.equal(getSkillModifier(skill), skill === 100 ? 7 : Math.floor(skill / 10) - 3, 'prologue uses canonical skill modifier progression');
+}
+console.log('Prologue checks and secret lore gating: PASS');
