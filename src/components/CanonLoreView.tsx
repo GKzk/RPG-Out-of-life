@@ -4,7 +4,7 @@ import { CANON_LORE_ARTICLES, getVisibleLoreArticles } from '../data/canonLore';
 import { BookOpen, ShieldAlert, Sparkles, FileText, Lock } from 'lucide-react';
 
 export const CanonLoreView: React.FC = () => {
-  const { unlockedLoreIds } = useGame();
+  const { unlockedLoreIds, openPrologue, prologueCompleted } = useGame();
   const [selectedArticleId, setSelectedArticleId] = useState<string>(CANON_LORE_ARTICLES[0].id);
   const visibleArticles = getVisibleLoreArticles(unlockedLoreIds);
   const selectedArticle = visibleArticles.find((article) => article.id === selectedArticleId) || visibleArticles[0];
@@ -20,9 +20,18 @@ export const CanonLoreView: React.FC = () => {
           </div>
         </div>
 
-        <div className="text-xs text-neutral-400 flex items-center gap-2">
-          <Lock className="w-4 h-4" />
-          <span>Засекреченные материалы открываются по ходу сюжета.</span>
+        <div className="flex flex-col items-end gap-2">
+          <div className="text-xs text-neutral-400 flex items-center gap-2">
+            <Lock className="w-4 h-4" />
+            <span>Засекреченные материалы открываются по ходу сюжета.</span>
+          </div>
+          <button
+            type="button"
+            onClick={openPrologue}
+            className="text-xs px-3 py-1.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-colors"
+          >
+            {prologueCompleted ? 'Повторить пролог (без повторных наград)' : 'Открыть пролог'}
+          </button>
         </div>
       </div>
 
