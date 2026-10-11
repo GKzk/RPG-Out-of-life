@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   Character,
   SpecialStats,
@@ -114,7 +114,11 @@ interface GameContextType {
 
   addLogMessage: (textRu: string, type?: CombatLogEntry['type']) => void;
   isPrologueActive: boolean;
+  prologueCompleted: boolean;
   completePrologue: () => void;
+  openPrologue: () => void;
+  claimedPrologueScenes: number[];
+  claimPrologueScene: (sceneId: number) => boolean;
   unlockedLoreIds: string[];
   unlockLoreArticle: (articleId: string) => void;
   resetGame: () => void;
@@ -145,6 +149,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [pendingFeatChoices, setPendingFeatChoices] = useState<number>(0);
   const [isPrologueActive, setIsPrologueActive] = useState<boolean>(false);
+  const [prologueCompleted, setPrologueCompleted] = useState<boolean>(false);
+  const [claimedPrologueScenes, setClaimedPrologueScenes] = useState<number[]>([]);
+  const claimedPrologueScenesRef = useRef<Set<number>>(new Set());
+  const claimPrologueScene = (sceneId: number): boolean => {
+    if (prologueCompleted || claimedPrologueScenesRef.current.has(sceneId)) return false;
+    claimedPrologueScenesRef.current.add(sceneId);
+    setClaimedPrologueScenes(Array.from(claimedPrologueScenesRef.current));
+    return true;
+  };
+  const completePrologue = () => {
+    setPrologueCompleted(true);
+    setIsPrologueActive(false);
+  };
+  const openPrologue = () => {
+    if (character) setIsPrologueActive(true);
+  };
   const [unlockedLoreIds, setUnlockedLoreIds] = useState<string[]>([]);
   const unlockLoreArticle = (articleId: string) => {
     // Only story events should call this. The secret archive is never unlocked by a local UI toggle.
@@ -152,7 +172,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUnlockedLoreIds((prev) => prev.includes(articleId) ? prev : [...prev, articleId]);
     }
   };
-  const completePrologue = () => setIsPrologueActive(false);
 
   const [combatState, setCombatState] = useState<CombatState>({
     inCombat: false,
@@ -263,6 +282,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newChar.currentAp = derived.maxAp;
 
     setCharacter(newChar);
+    setPrologueCompleted(false);
+    claimedPrologueScenesRef.current = new Set<number>();
+    setClaimedPrologueScenes([]);
+    setUnlockedLoreIds([]);
     setIsPrologueActive(true);
 
     // Initial Starter Items (Canon v1.0)
@@ -1361,6 +1384,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPendingFeatChoices(0);
     setLastProvisionDay(1);
     setIsPrologueActive(false);
+    setPrologueCompleted(false);
+    claimedPrologueScenesRef.current = new Set<number>();
+    setClaimedPrologueScenes([]);
     setUnlockedLoreIds([]);
   };
 
@@ -1376,7 +1402,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         gameTimeHours,
         gameDay,
         isPrologueActive,
+        prologueCompleted,
         completePrologue,
+        openPrologue,
+        claimedPrologueScenes,
+        claimPrologueScene,
         unlockedLoreIds,
         unlockLoreArticle,
         createCharacter,
