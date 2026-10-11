@@ -9,11 +9,13 @@ import { InventoryView } from './components/InventoryView';
 import { CombatArena } from './components/CombatArena';
 import { WastelandExplorer } from './components/WastelandExplorer';
 import { CombatLogConsole } from './components/CombatLogConsole';
+import { PrologueSequenceModal } from './components/PrologueSequenceModal';
+import { CanonLoreView } from './components/CanonLoreView';
 
-type ActiveTab = 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer';
+type ActiveTab = 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore';
 
 const MainAppContent: React.FC = () => {
-  const { character, combatState, pendingFeatChoices } = useGame();
+  const { character, combatState, pendingFeatChoices, isPrologueActive, completePrologue } = useGame();
   const [activeTab, setActiveTab] = useState<ActiveTab>('character');
 
   // Switch tab automatically when combat starts
@@ -31,6 +33,8 @@ const MainAppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-amber-300 font-mono pb-48 selection:bg-amber-500 selection:text-neutral-950">
+      {isPrologueActive && <PrologueSequenceModal onComplete={completePrologue} />}
+
       <HeaderNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="py-6">
@@ -40,6 +44,7 @@ const MainAppContent: React.FC = () => {
         {activeTab === 'inventory' && <InventoryView />}
         {activeTab === 'combat' && <CombatArena />}
         {activeTab === 'explorer' && <WastelandExplorer />}
+        {activeTab === 'lore' && <CanonLoreView />}
       </main>
 
       <CombatLogConsole />

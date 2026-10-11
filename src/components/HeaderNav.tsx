@@ -12,11 +12,12 @@ import {
   Heart,
   Shield,
   Award,
+  BookOpen,
 } from 'lucide-react';
 
 interface HeaderNavProps {
-  activeTab: 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer';
-  setActiveTab: (tab: 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer') => void;
+  activeTab: 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore';
+  setActiveTab: (tab: 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore') => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({ activeTab, setActiveTab }) => {
@@ -160,6 +161,18 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({ activeTab, setActiveTab })
         >
           <Compass className="w-4 h-4" />
           <span>Исследование & Поиск</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('lore')}
+          className={`flex items-center gap-2 px-4 py-2.5 font-medium transition-all border-b-2 whitespace-nowrap ${
+            activeTab === 'lore'
+              ? 'border-amber-400 text-amber-300 bg-amber-500/10'
+              : 'border-transparent text-neutral-400 hover:text-amber-200 hover:bg-neutral-800/50'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Лор & Хроники</span>
         </button>
       </nav>
     </header>

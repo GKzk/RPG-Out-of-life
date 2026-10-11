@@ -1,0 +1,183 @@
+import React, { useState } from 'react';
+import { useGame } from '../context/GameContext';
+import { PROLOGUE_SCENES } from '../data/canonLore';
+import { PET_DEFINITIONS } from '../data/pets';
+import { calculateSkillValue } from '../utils/statCalculations';
+import { SkillName } from '../types/game';
+import { Shield, Sparkles, Dices, ArrowRight, CheckCircle2, AlertTriangle, FastForward } from 'lucide-react';
+
+interface PrologueSequenceModalProps {
+  onComplete: () => void;
+}
+
+export const PrologueSequenceModal: React.FC<PrologueSequenceModalProps> = ({ onComplete }) => {
+  const { character, effectiveSpecial, addLogMessage } = useGame();
+  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+  const [rollResult, setRollResult] = useState<{ d20: number; modifier: number; total: number; success: boolean } | null>(null);
+  const [sceneFinished, setSceneFinished] = useState(false);
+  const [logSummary, setLogSummary] = useState<string[]>([]);
+
+  if (!character) return null;
+
+  const scene = PROLOGUE_SCENES[currentSceneIndex];
+  const pet = PET_DEFINITIONS.find((p) => p.id === character.petId) || PET_DEFINITIONS[0];
+
+  // Get skill modifier for the associated skill
+  const skillId = scene.associatedSkill as SkillName;
+  const skillVal = calculateSkillValue(skillId, character, effectiveSpecial);
+  const skillModifier = Math.floor((skillVal - 10) / 2);
+
+  const handleRoll = () => {
+    const d20 = Math.floor(Math.random() * 20) + 1;
+    const total = d20 + skillModifier;
+    const success = total >= scene.difficulty;
+
+    setRollResult({ d20, modifier: skillModifier, total, success });
+    setSceneFinished(true);
+
+    const msg = success ? scene.successTextRu : scene.failureTextRu;
+    setLogSummary((prev) => [...prev, `${scene.titleRu}: бросок D20=${d20} + мод(${skillModifier}) = ${total} (${success ? 'УСПЕХ' : 'ТРУДНОСТИ'})`]);
+    addLogMessage(`[Пролог] ${msg}`, success ? 'info' : 'hazard');
+  };
+
+  const handleNextScene = () => {
+    setRollResult(null);
+    setSceneFinished(false);
+    if (currentSceneIndex < PROLOGUE_SCENES.length - 1) {
+      setCurrentSceneIndex((prev) => prev + 1);
+    } else {
+      addLogMessage('Пролог «Пустая деревня» успешно завершен. Вы вышли на лесные тракты Подмосковья.', 'info');
+      onComplete();
+    }
+  };
+
+  const handleSkip = () => {
+    addLogMessage('Пролог пропущен. Вы прибыли на тракты Подмосковья со стандартным снаряжением.', 'info');
+    onComplete();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="bg-neutral-900 border-2 border-amber-500/60 rounded-xl max-w-2xl w-full p-6 text-amber-300 font-mono shadow-2xl shadow-amber-500/20 relative animate-in fade-in zoom-in duration-300">
+        
+        {/* Top banner */}
+        <div className="flex items-center justify-between border-b border-amber-500/30 pb-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-amber-400 animate-pulse" />
+            <h2 className="text-lg font-bold text-amber-400 tracking-wider">ПРОЛОГ: ПУСТАЯ ДЕРЕВНЯ</h2>
+          </div>
+          <button
+            onClick={handleSkip}
+            className="flex items-center gap-1 text-xs text-neutral-400 hover:text-amber-200 bg-neutral-800 px-3 py-1.5 rounded transition-colors"
+          >
+            <FastForward className="w-3.5 h-3.5" />
+            <span>Пропустить пролог</span>
+          </button>
+        </div>
+
+        {/* Progress indicator */}
+        <div className="flex items-center gap-1 mb-6">
+          {PROLOGUE_SCENES.map((s, idx) => (
+            <div
+              key={s.id}
+              className={`h-2 flex-1 rounded-full transition-all ${
+                idx === currentSceneIndex
+                  ? 'bg-amber-400 shadow-sm shadow-amber-400/50'
+                  : idx < currentSceneIndex
+                  ? 'bg-amber-600/60'
+                  : 'bg-neutral-800'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Scene Box */}
+        <div className="bg-neutral-950/80 border border-amber-500/20 rounded-lg p-5 mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold px-2.5 py-1 bg-amber-500/10 text-amber-400 rounded border border-amber-500/30">
+              Сцена {currentSceneIndex + 1} из {PROLOGUE_SCENES.length}
+            </span>
+            <span className="text-xs text-neutral-400">
+              Напарник: <span className="text-amber-300 font-bold">{pet.nameRu} ({pet.speciesRu})</span>
+            </span>
+          </div>
+
+          <h3 className="text-xl font-bold text-amber-200">{scene.titleRu}</h3>
+          
+          <p className="text-sm text-neutral-300 leading-relaxed bg-neutral-900/60 p-3 rounded border border-neutral-800">
+            {scene.descriptionRu}
+          </p>
+
+          <div className="text-xs text-amber-400/90 flex items-center gap-2 bg-amber-500/5 p-2.5 rounded border border-amber-500/10">
+            <Shield className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Задача: {scene.promptRu}</span>
+          </div>
+
+          {/* Pet specific narrative flavour */}
+          <div className="text-xs text-cyan-300 bg-cyan-950/30 p-2.5 rounded border border-cyan-500/20 flex items-start gap-2">
+            <span className="font-bold shrink-0">Реакция {pet.nameRu}:</span>
+            <span>
+              {character.petId === 'hound' && 'Байкал низко припал к земле, внюхиваясь в утренний воздух и предупреждая глухим рокотом.'}
+              {character.petId === 'cat' && 'Барсик бесшумно взбесил шерсть на загривке, чутко прислушиваясь к каждому шороху в руинах.'}
+              {character.petId === 'crow' && 'Каркун сделал пару кругов над крышей брошенного амбара, тихонько каркнув в знак тревоги.'}
+              {character.petId === 'ferret' && 'Ермак юрко нырнул под разбитое крыльцо, обнюхивая следы чужих сапог.'}
+              {character.petId === 'boar' && 'Буян сердито фыркнул, раскапывая копытцем мерзлую землю у ворот.'}
+              {character.petId === 'none' && 'В тишине пустого поселка вы рассчитываете только на собственную бдительность.'}
+            </span>
+          </div>
+        </div>
+
+        {/* Roll / Results Section */}
+        {!sceneFinished ? (
+          <div className="flex items-center justify-between bg-neutral-950 p-4 rounded-lg border border-amber-500/30">
+            <div className="text-xs">
+              <span className="text-neutral-400">Проверка навыка ({scene.associatedSkill}):</span>
+              <span className="text-amber-300 font-bold ml-2">Сложность {scene.difficulty} (Мод: {skillModifier >= 0 ? `+${skillModifier}` : skillModifier})</span>
+            </div>
+            <button
+              onClick={handleRoll}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 px-5 py-2.5 rounded font-bold text-sm transition-all shadow-lg shadow-amber-500/30 cursor-pointer"
+            >
+              <Dices className="w-4 h-4" />
+              <span>Бросить D20</span>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            {rollResult && (
+              <div className={`p-4 rounded-lg border flex items-center justify-between ${rollResult.success ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' : 'bg-amber-950/40 border-amber-500/40 text-amber-300'}`}>
+                <div className="flex items-center gap-3">
+                  {rollResult.success ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> : <AlertTriangle className="w-6 h-6 text-amber-400" />}
+                  <div>
+                    <div className="font-bold text-sm">
+                      {rollResult.success ? 'Успешное преодоление сцены!' : 'Преодолено с трудом'}
+                    </div>
+                    <div className="text-xs text-neutral-300 mt-0.5">
+                      Бросок: {rollResult.d20} + {rollResult.modifier} = <strong className="text-white">{rollResult.total}</strong> (Требовалось: {scene.difficulty})
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs font-semibold px-3 py-1 rounded bg-black/40">
+                  {rollResult.success ? '+ Бонус к выживанию' : 'Штраф к осторожности'}
+                </div>
+              </div>
+            )}
+
+            <div className="text-xs text-neutral-300 bg-neutral-950 p-3 rounded border border-neutral-800">
+              {rollResult?.success ? scene.successTextRu : scene.failureTextRu}
+            </div>
+
+            <button
+              onClick={handleNextScene}
+              className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 py-3 rounded font-bold text-sm transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
+            >
+              <span>{currentSceneIndex < PROLOGUE_SCENES.length - 1 ? 'Следующая сцена' : 'Выйти на глобальную карту'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+};

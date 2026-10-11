@@ -113,6 +113,8 @@ interface GameContextType {
   markPetMissing: (reasonRu?: string) => void;
 
   addLogMessage: (textRu: string, type?: CombatLogEntry['type']) => void;
+  isPrologueActive: boolean;
+  completePrologue: () => void;
   resetGame: () => void;
 }
 
@@ -140,6 +142,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastProvisionDay, setLastProvisionDay] = useState<number>(1);
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [pendingFeatChoices, setPendingFeatChoices] = useState<number>(0);
+  const [isPrologueActive, setIsPrologueActive] = useState<boolean>(false);
+  const completePrologue = () => setIsPrologueActive(false);
 
   const [combatState, setCombatState] = useState<CombatState>({
     inCombat: false,
@@ -239,8 +243,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       survival: { ...INITIAL_SURVIVAL },
       currentHp: 50,
       currentAp: 10,
-      equippedWeaponId: 'pipe_rifle',
-      equippedArmorId: 'vault_suit',
+      equippedWeaponId: 'hunting_knife',
+      equippedArmorId: 'survivor_jacket',
     };
 
     // Calculate initial Max HP and AP
@@ -250,13 +254,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newChar.currentAp = derived.maxAp;
 
     setCharacter(newChar);
+    setIsPrologueActive(true);
 
-    // Initial Starter Items
+    // Initial Starter Items (Canon v1.0)
     const startingInventory: InventoryItem[] = [
-      { item: ITEM_DATABASE.find((i) => i.id === 'pipe_rifle')!, quantity: 1 },
-      { item: ITEM_DATABASE.find((i) => i.id === 'vault_suit')!, quantity: 1 },
-      { item: ITEM_DATABASE.find((i) => i.id === 'purified_water')!, quantity: 3 },
-      { item: ITEM_DATABASE.find((i) => i.id === 'canned_cram')!, quantity: 2 },
+      { item: ITEM_DATABASE.find((i) => i.id === 'elders_map')!, quantity: 1 },
+      { item: ITEM_DATABASE.find((i) => i.id === 'hunting_knife')!, quantity: 1 },
+      { item: ITEM_DATABASE.find((i) => i.id === 'survivor_jacket')!, quantity: 1 },
+      { item: ITEM_DATABASE.find((i) => i.id === 'canteen_boiled_water')!, quantity: 1 },
+      { item: ITEM_DATABASE.find((i) => i.id === 'hardtack_rusks')!, quantity: 2 },
+      { item: ITEM_DATABASE.find((i) => i.id === 'dynamo_flashlight')!, quantity: 1 },
       { item: ITEM_DATABASE.find((i) => i.id === 'stimpak')!, quantity: 2 },
     ];
     setInventory(startingInventory);
@@ -1344,6 +1351,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCombatLog([]);
     setPendingFeatChoices(0);
     setLastProvisionDay(1);
+    setIsPrologueActive(false);
   };
 
   return (
@@ -1357,6 +1365,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         combatLog,
         gameTimeHours,
         gameDay,
+        isPrologueActive,
+        completePrologue,
         createCharacter,
         loadPresetCharacter,
         equipWeapon,
