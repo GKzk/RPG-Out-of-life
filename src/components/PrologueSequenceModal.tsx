@@ -13,7 +13,7 @@ interface PrologueSequenceModalProps {
 }
 
 export const PrologueSequenceModal: React.FC<PrologueSequenceModalProps> = ({ onComplete }) => {
-  const { character, effectiveSpecial, addLogMessage, addItemToInventory, passTime } = useGame();
+  const { character, effectiveSpecial, addLogMessage, addItemToInventory, passTime, claimPrologueScene } = useGame();
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const [rollResult, setRollResult] = useState<{ d20: number; modifier: number; total: number; success: boolean } | null>(null);
   const [sceneFinished, setSceneFinished] = useState(false);
@@ -42,21 +42,22 @@ export const PrologueSequenceModal: React.FC<PrologueSequenceModalProps> = ({ on
     setRollResult({ d20, modifier: check.baseScore, total: check.finalScore, success });
     setSceneFinished(true);
 
+    const mayApplyConsequences = claimPrologueScene(scene.id);
     let consequence = '';
-    if (currentSceneIndex === 0 && success) {
+    if (mayApplyConsequences && currentSceneIndex === 0 && success) {
       const item = ITEM_DATABASE.find((entry) => entry.id === 'canned_cram');
       if (item) { addItemToInventory(item, 1); consequence = ` Найдено: ${item.nameRu} ×1.`; }
-    } else if (currentSceneIndex === 2 && !success) {
+    } else if (mayApplyConsequences && currentSceneIndex === 2 && !success) {
       passTime(1, 'Задержка при отходе от мародёров в прологе');
       consequence = ' Потерян час: пришлось переждать, пока мародёры уйдут.';
-    } else if (currentSceneIndex === 3) {
+    } else if (mayApplyConsequences && currentSceneIndex === 3) {
       const itemId = success ? 'stimpak' : 'dirty_water';
       const item = ITEM_DATABASE.find((entry) => entry.id === itemId);
       if (item) {
         addItemToInventory(item, 1);
         consequence = success ? ` Найдено: ${item.nameRu} ×1.` : `В спешке удалось забрать минимум: ${item.nameRu} ×1.`;
       }
-    } else if (currentSceneIndex === 4 && !success) {
+    } else if (mayApplyConsequences && currentSceneIndex === 4 && !success) {
       passTime(1, 'Трудный отход по лесной тропе в прологе');
       consequence = ' Побег удался, но дорога заняла лишний час.';
     }
