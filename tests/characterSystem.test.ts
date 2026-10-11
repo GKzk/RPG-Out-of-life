@@ -38,7 +38,7 @@ import {
 import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getSkillTrainingCost, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned, getTotalPointCost, getSkillModifier } from '../src/utils/statCalculations';
 import { SkillName, Character, SpecialStats } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
-import { CANON_LORE_ARTICLES, PROLOGUE_SCENES, getVisibleLoreArticles } from '../src/data/canonLore';
+import { CANON_LORE_ARTICLES, PROLOGUE_SCENES, getVisibleLoreArticles, canClaimPrologueReward } from '../src/data/canonLore';
 import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
 import { FEAT_DEFINITIONS } from '../src/data/feats';
 import { BACKGROUND_DEFINITIONS } from '../src/data/backgrounds';
@@ -771,3 +771,8 @@ for (let skill = 0; skill <= 100; skill++) {
   assert.equal(getSkillModifier(skill), skill === 100 ? 7 : Math.floor(skill / 10) - 3, 'prologue uses canonical skill modifier progression');
 }
 console.log('Prologue checks and secret lore gating: PASS');
+
+assert.equal(canClaimPrologueReward(false, [], 1), true, 'a first-run scene can apply consequences');
+assert.equal(canClaimPrologueReward(false, [1], 1), false, 'a claimed scene cannot grant consequences twice');
+assert.equal(canClaimPrologueReward(true, [], 1), false, 'a completed prologue replay cannot grant new consequences');
+console.log('Prologue replay reward guard: PASS');
