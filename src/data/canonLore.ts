@@ -60,6 +60,11 @@ export const CANON_LORE_ARTICLES: LoreArticle[] = [
 },
 ];
 
+/** A scene may grant its consequences only once during the current game. */
+export function canClaimPrologueReward(prologueCompleted: boolean, claimedSceneIds: number[], sceneId: number): boolean {
+  return !prologueCompleted && !claimedSceneIds.includes(sceneId);
+}
+
 /** Secret entries remain hidden until their explicit story flag is present. */
 export function getVisibleLoreArticles(unlockedLoreIds: string[] = []): LoreArticle[] {
   return CANON_LORE_ARTICLES.filter((article) => !article.isSecret || unlockedLoreIds.includes(article.id));
