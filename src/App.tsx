@@ -11,8 +11,9 @@ import { WastelandExplorer } from './components/WastelandExplorer';
 import { CombatLogConsole } from './components/CombatLogConsole';
 import { PrologueSequenceModal } from './components/PrologueSequenceModal';
 import { CanonLoreView } from './components/CanonLoreView';
+import { VillageTacticalMap } from './components/visuals/VillageTacticalMap';
 
-type ActiveTab = 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore';
+type ActiveTab = 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore' | 'village_map';
 
 const MainAppContent: React.FC = () => {
   const { character, combatState, pendingFeatChoices, isPrologueActive, completePrologue } = useGame();
@@ -43,6 +44,7 @@ const MainAppContent: React.FC = () => {
         {activeTab === 'survival' && <SurvivalView />}
         {activeTab === 'inventory' && <InventoryView />}
         {activeTab === 'combat' && <CombatArena />}
+        {activeTab === 'village_map' && <VillageTacticalMap />}
         {activeTab === 'explorer' && <WastelandExplorer />}
         {activeTab === 'lore' && <CanonLoreView />}
       </main>

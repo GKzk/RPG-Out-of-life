@@ -13,11 +13,12 @@ import {
   Shield,
   Award,
   BookOpen,
+  MapPin,
 } from 'lucide-react';
 
 interface HeaderNavProps {
-  activeTab: 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore';
-  setActiveTab: (tab: 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore') => void;
+  activeTab: 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore' | 'village_map';
+  setActiveTab: (tab: 'character' | 'skills' | 'survival' | 'inventory' | 'combat' | 'explorer' | 'lore' | 'village_map') => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({ activeTab, setActiveTab }) => {
@@ -149,6 +150,21 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({ activeTab, setActiveTab })
               В бою
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('village_map')}
+          className={`flex items-center gap-2 px-4 py-2.5 font-medium transition-all border-b-2 whitespace-nowrap ${
+            activeTab === 'village_map'
+              ? 'border-amber-400 text-amber-300 bg-amber-500/10'
+              : 'border-transparent text-neutral-400 hover:text-amber-200 hover:bg-neutral-800/50'
+          }`}
+        >
+          <MapPin className="w-4 h-4 text-amber-400" />
+          <span>Тактика: Деревня</span>
+          <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-300 text-[10px] rounded border border-amber-500/30">
+            2D Сетка
+          </span>
         </button>
 
         <button

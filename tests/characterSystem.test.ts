@@ -43,6 +43,13 @@ import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
 import { FEAT_DEFINITIONS } from '../src/data/feats';
 import { BACKGROUND_DEFINITIONS } from '../src/data/backgrounds';
 import { PET_DEFINITIONS } from '../src/data/pets';
+import {
+  VILLAGE_TERRAIN_MAP,
+  INITIAL_VILLAGE_POIS,
+  INITIAL_PATROL_ENEMIES,
+  MAP_GRID_WIDTH,
+  MAP_GRID_HEIGHT,
+} from '../src/data/villageMapData';
 import { getXpForLevel, getXpForNextLevel, getXpToNextLevel, getLevelForXp, isPerkLevel, MAX_LEVEL } from '../src/utils/progression';
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
@@ -769,3 +776,33 @@ for (let skill = 0; skill <= 100; skill++) {
   assert.equal(getSkillModifier(skill), skill === 100 ? 7 : Math.floor(skill / 10) - 3, 'prologue uses canonical skill modifier progression');
 }
 console.log('Prologue checks and secret lore gating: PASS');
+
+// 15. Village Tactical Grid & Map Data regression checks
+assert.equal(VILLAGE_TERRAIN_MAP.length, MAP_GRID_HEIGHT, 'terrain map height matches grid height');
+VILLAGE_TERRAIN_MAP.forEach((row, rowIndex) => {
+  assert.equal(row.length, MAP_GRID_WIDTH, `terrain map row ${rowIndex} matches grid width`);
+});
+
+INITIAL_VILLAGE_POIS.forEach((poi) => {
+  assert.ok(poi.x >= 0 && poi.x < MAP_GRID_WIDTH, `POI ${poi.id} x is within bounds`);
+  assert.ok(poi.y >= 0 && poi.y < MAP_GRID_HEIGHT, `POI ${poi.id} y is within bounds`);
+  assert.ok(poi.nameRu.length > 0, `POI ${poi.id} has nameRu`);
+  assert.ok(poi.descriptionRu.length > 0, `POI ${poi.id} has descriptionRu`);
+  if (poi.lootItems) {
+    poi.lootItems.forEach((loot) => {
+      assert.ok(ITEM_DATABASE.some((item) => item.id === loot.itemId), `POI ${poi.id} loot item ${loot.itemId} exists in database`);
+      assert.ok(loot.count > 0, `POI ${poi.id} loot count is positive`);
+    });
+  }
+});
+
+INITIAL_PATROL_ENEMIES.forEach((enemy) => {
+  assert.ok(enemy.x >= 0 && enemy.x < MAP_GRID_WIDTH, `Patrol enemy ${enemy.id} x is within bounds`);
+  assert.ok(enemy.y >= 0 && enemy.y < MAP_GRID_HEIGHT, `Patrol enemy ${enemy.id} y is within bounds`);
+  assert.ok(enemy.route.length >= 2, `Patrol enemy ${enemy.id} has at least 2 route waypoints`);
+  enemy.route.forEach((waypoint, idx) => {
+    assert.ok(waypoint.x >= 0 && waypoint.x < MAP_GRID_WIDTH, `Patrol waypoint ${idx} x within bounds`);
+    assert.ok(waypoint.y >= 0 && waypoint.y < MAP_GRID_HEIGHT, `Patrol waypoint ${idx} y within bounds`);
+  });
+});
+console.log('Village tactical map & visual prototype data tests: PASS');
