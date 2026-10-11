@@ -35,11 +35,10 @@ import {
   calculateSurvivalConsumptionRate,
   calculateBarterPrice,
 } from '../src/utils/characterSystem';
-import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getSkillTrainingCost, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned, getTotalPointCost } from '../src/utils/statCalculations';
+import { calculateSkillValue, calculateSkillCheckBase, resolveSkillCheck, calculateEffectiveSpecial, getSkillTrainingCostPerPoint, getSkillTrainingCost, getStartingSkillPoints, getSkillPointsPerLevel, getTotalSkillPointsEarned, getTotalPointCost, getSkillModifier } from '../src/utils/statCalculations';
 import { SkillName, Character, SpecialStats } from '../src/types/game';
 import { SKILL_DEFINITIONS } from '../src/data/skills';
 import { CANON_LORE_ARTICLES, PROLOGUE_SCENES, getVisibleLoreArticles } from '../src/data/canonLore';
-import { getSkillModifier } from '../src/utils/statCalculations';
 import { ARCHETYPE_PRESETS } from '../src/data/archetypes';
 import { FEAT_DEFINITIONS } from '../src/data/feats';
 import { BACKGROUND_DEFINITIONS } from '../src/data/backgrounds';
