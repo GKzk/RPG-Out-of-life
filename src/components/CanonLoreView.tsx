@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
-import { CANON_LORE_ARTICLES, LoreArticle } from '../data/canonLore';
+import { CANON_LORE_ARTICLES, getVisibleLoreArticles } from '../data/canonLore';
 import { BookOpen, ShieldAlert, Sparkles, FileText, Lock } from 'lucide-react';
 
 export const CanonLoreView: React.FC = () => {
   const { unlockedLoreIds } = useGame();
   const [selectedArticleId, setSelectedArticleId] = useState<string>(CANON_LORE_ARTICLES[0].id);
-  const visibleArticles = CANON_LORE_ARTICLES.filter((article) => !article.isSecret || unlockedLoreIds.includes(article.id));
+  const visibleArticles = getVisibleLoreArticles(unlockedLoreIds);
   const selectedArticle = visibleArticles.find((article) => article.id === selectedArticleId) || visibleArticles[0];
 
   return (
