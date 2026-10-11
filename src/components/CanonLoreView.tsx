@@ -32,7 +32,7 @@ export const CanonLoreView: React.FC = () => {
           <h3 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3 pb-2 border-b border-neutral-800">
             Каталог материалов
           </h3>
-          {visibleArticles.map((article) => {
+          {visibleArticles.map((article) => (
               <button
                 key={article.id}
                 onClick={() => setSelectedArticleId(article.id)}
@@ -48,7 +48,7 @@ export const CanonLoreView: React.FC = () => {
                   <div className="text-[10px] text-neutral-400 mt-0.5">{article.categoryRu}</div>
                 </div>
               </button>
-          })}
+          ))}
         </div>
 
         {/* Article viewer */}
