@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { CANON_LORE_ARTICLES, LoreArticle } from '../data/canonLore';
+import { useGame } from '../context/GameContext';
+import { CANON_LORE_ARTICLES, getVisibleLoreArticles } from '../data/canonLore';
 import { BookOpen, ShieldAlert, Sparkles, FileText, Lock } from 'lucide-react';
 
 export const CanonLoreView: React.FC = () => {
+  const { unlockedLoreIds } = useGame();
   const [selectedArticleId, setSelectedArticleId] = useState<string>(CANON_LORE_ARTICLES[0].id);
-  const [showSecret, setShowSecret] = useState<boolean>(false);
-
-  const selectedArticle = CANON_LORE_ARTICLES.find((a) => a.id === selectedArticleId) || CANON_LORE_ARTICLES[0];
+  const visibleArticles = getVisibleLoreArticles(unlockedLoreIds);
+  const selectedArticle = visibleArticles.find((article) => article.id === selectedArticleId) || visibleArticles[0];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 font-mono text-amber-300">
@@ -19,17 +20,10 @@ export const CanonLoreView: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowSecret(!showSecret)}
-          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded transition-all border ${
-            showSecret
-              ? 'bg-red-500/20 border-red-500/40 text-red-300'
-              : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-amber-200'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4" />
-          <span>{showSecret ? 'Скрыть засекреченные архивы ИИ' : 'Доступ к архивам СверхИИ'}</span>
-        </button>
+        <div className="text-xs text-neutral-400 flex items-center gap-2">
+          <Lock className="w-4 h-4" />
+          <span>Засекреченные материалы открываются по ходу сюжета.</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -38,9 +32,7 @@ export const CanonLoreView: React.FC = () => {
           <h3 className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3 pb-2 border-b border-neutral-800">
             Каталог материалов
           </h3>
-          {CANON_LORE_ARTICLES.map((article) => {
-            if (article.isSecret && !showSecret) return null;
-            return (
+          {visibleArticles.map((article) => (
               <button
                 key={article.id}
                 onClick={() => setSelectedArticleId(article.id)}
@@ -56,8 +48,7 @@ export const CanonLoreView: React.FC = () => {
                   <div className="text-[10px] text-neutral-400 mt-0.5">{article.categoryRu}</div>
                 </div>
               </button>
-            );
-          })}
+          ))}
         </div>
 
         {/* Article viewer */}

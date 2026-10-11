@@ -60,6 +60,11 @@ export const CANON_LORE_ARTICLES: LoreArticle[] = [
 },
 ];
 
+/** Secret entries remain hidden until their explicit story flag is present. */
+export function getVisibleLoreArticles(unlockedLoreIds: string[] = []): LoreArticle[] {
+  return CANON_LORE_ARTICLES.filter((article) => !article.isSecret || unlockedLoreIds.includes(article.id));
+}
+
 export interface PrologueScene {
   id: number;
   titleRu: string;

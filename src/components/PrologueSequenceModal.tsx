@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { PROLOGUE_SCENES } from '../data/canonLore';
 import { PET_DEFINITIONS } from '../data/pets';
-import { calculateSkillValue } from '../utils/statCalculations';
+import { calculateSkillValue, resolveSkillCheck, rollD20 } from '../utils/statCalculations';
+import { SKILL_DEFINITIONS } from '../data/skills';
+import { ITEM_DATABASE } from '../data/items';
 import { SkillName } from '../types/game';
 import { Shield, Sparkles, Dices, ArrowRight, CheckCircle2, AlertTriangle, FastForward } from 'lucide-react';
 
@@ -11,33 +13,56 @@ interface PrologueSequenceModalProps {
 }
 
 export const PrologueSequenceModal: React.FC<PrologueSequenceModalProps> = ({ onComplete }) => {
-  const { character, effectiveSpecial, addLogMessage } = useGame();
+  const { character, effectiveSpecial, addLogMessage, addItemToInventory, passTime } = useGame();
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const [rollResult, setRollResult] = useState<{ d20: number; modifier: number; total: number; success: boolean } | null>(null);
   const [sceneFinished, setSceneFinished] = useState(false);
-  const [logSummary, setLogSummary] = useState<string[]>([]);
-
+  
   if (!character) return null;
 
   const scene = PROLOGUE_SCENES[currentSceneIndex];
-  const pet = PET_DEFINITIONS.find((p) => p.id === character.petId) || PET_DEFINITIONS[0];
+  const pet = character.petId && character.petId !== 'none'
+    ? PET_DEFINITIONS.find((p) => p.id === character.petId) ?? null
+    : null;
 
-  // Get skill modifier for the associated skill
   const skillId = scene.associatedSkill as SkillName;
   const skillVal = calculateSkillValue(skillId, character, effectiveSpecial);
-  const skillModifier = Math.floor((skillVal - 10) / 2);
+  const skillDefinition = SKILL_DEFINITIONS.find((skill) => skill.id === skillId);
+  const governingAttribute = skillDefinition ? effectiveSpecial[skillDefinition.primaryAttr] : effectiveSpecial.PER;
+  // Existing scene difficulties (8–12) used a different scale. Offset locally to map them
+  // to the canonical resolver; do not change the shared RPG check formula.
+  const canonicalDifficulty = scene.difficulty + 8;
+  const skillModifier = (governingAttribute - 5) + Math.floor(skillVal / 10) - 3;
 
   const handleRoll = () => {
-    const d20 = Math.floor(Math.random() * 20) + 1;
-    const total = d20 + skillModifier;
-    const success = total >= scene.difficulty;
-
-    setRollResult({ d20, modifier: skillModifier, total, success });
+    if (sceneFinished) return;
+    const d20 = rollD20();
+    const check = resolveSkillCheck(governingAttribute, skillVal, canonicalDifficulty, d20);
+    const success = check.outcome === 'success' || check.outcome === 'critical_success';
+    setRollResult({ d20, modifier: check.baseScore, total: check.finalScore, success });
     setSceneFinished(true);
 
+    let consequence = '';
+    if (currentSceneIndex === 0 && success) {
+      const item = ITEM_DATABASE.find((entry) => entry.id === 'canned_cram');
+      if (item) { addItemToInventory(item, 1); consequence = ` Найдено: ${item.nameRu} ×1.`; }
+    } else if (currentSceneIndex === 2 && !success) {
+      passTime(1, 'Задержка при отходе от мародёров в прологе');
+      consequence = ' Потерян час: пришлось переждать, пока мародёры уйдут.';
+    } else if (currentSceneIndex === 3) {
+      const itemId = success ? 'stimpak' : 'dirty_water';
+      const item = ITEM_DATABASE.find((entry) => entry.id === itemId);
+      if (item) {
+        addItemToInventory(item, 1);
+        consequence = success ? ` Найдено: ${item.nameRu} ×1.` : `В спешке удалось забрать минимум: ${item.nameRu} ×1.`;
+      }
+    } else if (currentSceneIndex === 4 && !success) {
+      passTime(1, 'Трудный отход по лесной тропе в прологе');
+      consequence = ' Побег удался, но дорога заняла лишний час.';
+    }
+
     const msg = success ? scene.successTextRu : scene.failureTextRu;
-    setLogSummary((prev) => [...prev, `${scene.titleRu}: бросок D20=${d20} + мод(${skillModifier}) = ${total} (${success ? 'УСПЕХ' : 'ТРУДНОСТИ'})`]);
-    addLogMessage(`[Пролог] ${msg}`, success ? 'info' : 'hazard');
+    addLogMessage(`[Пролог] ${msg}${consequence}`, success ? 'info' : 'hazard');
   };
 
   const handleNextScene = () => {
@@ -98,7 +123,7 @@ export const PrologueSequenceModal: React.FC<PrologueSequenceModalProps> = ({ on
               Сцена {currentSceneIndex + 1} из {PROLOGUE_SCENES.length}
             </span>
             <span className="text-xs text-neutral-400">
-              Напарник: <span className="text-amber-300 font-bold">{pet.nameRu} ({pet.speciesRu})</span>
+              Напарник: <span className="text-amber-300 font-bold">{pet ? `${pet.nameRu} (${pet.speciesRu})` : 'нет питомца'}</span>
             </span>
           </div>
 
@@ -115,7 +140,7 @@ export const PrologueSequenceModal: React.FC<PrologueSequenceModalProps> = ({ on
 
           {/* Pet specific narrative flavour */}
           <div className="text-xs text-cyan-300 bg-cyan-950/30 p-2.5 rounded border border-cyan-500/20 flex items-start gap-2">
-            <span className="font-bold shrink-0">Реакция {pet.nameRu}:</span>
+            <span className="font-bold shrink-0">{pet ? `Реакция ${pet.nameRu}:` : 'Ваша реакция:'}</span>
             <span>
               {character.petId === 'hound' && 'Байкал низко припал к земле, внюхиваясь в утренний воздух и предупреждая глухим рокотом.'}
               {character.petId === 'cat' && 'Барсик бесшумно взбесил шерсть на загривке, чутко прислушиваясь к каждому шороху в руинах.'}
@@ -132,7 +157,7 @@ export const PrologueSequenceModal: React.FC<PrologueSequenceModalProps> = ({ on
           <div className="flex items-center justify-between bg-neutral-950 p-4 rounded-lg border border-amber-500/30">
             <div className="text-xs">
               <span className="text-neutral-400">Проверка навыка ({scene.associatedSkill}):</span>
-              <span className="text-amber-300 font-bold ml-2">Сложность {scene.difficulty} (Мод: {skillModifier >= 0 ? `+${skillModifier}` : skillModifier})</span>
+              <span className="text-amber-300 font-bold ml-2">Сложность {canonicalDifficulty} (модификатор навыка/характеристики: {skillModifier >= 0 ? `+${skillModifier}` : skillModifier})</span>
             </div>
             <button
               onClick={handleRoll}
@@ -153,12 +178,12 @@ export const PrologueSequenceModal: React.FC<PrologueSequenceModalProps> = ({ on
                       {rollResult.success ? 'Успешное преодоление сцены!' : 'Преодолено с трудом'}
                     </div>
                     <div className="text-xs text-neutral-300 mt-0.5">
-                      Бросок: {rollResult.d20} + {rollResult.modifier} = <strong className="text-white">{rollResult.total}</strong> (Требовалось: {scene.difficulty})
+                      Бросок D20: {rollResult.d20}; база: {rollResult.modifier >= 0 ? `+${rollResult.modifier}` : rollResult.modifier}; итог: <strong className="text-white">{rollResult.total}</strong> (сложность: {canonicalDifficulty})
                     </div>
                   </div>
                 </div>
                 <div className="text-xs font-semibold px-3 py-1 rounded bg-black/40">
-                  {rollResult.success ? '+ Бонус к выживанию' : 'Штраф к осторожности'}
+                  {rollResult.success ? 'Небольшое преимущество' : 'Небольшая цена ошибки'}
                 </div>
               </div>
             )}
