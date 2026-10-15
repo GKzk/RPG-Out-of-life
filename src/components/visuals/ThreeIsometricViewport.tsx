@@ -224,6 +224,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
   const onTileClickRef = useRef(onTileClick);
   const onTileHoverRef = useRef(onTileHover);
   const playerFacingRef = useRef(playerFacing);
+  const hoveredTileRef = useRef(hoveredTile);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const reqIdRef = useRef<number>(0);
   const meshesRef = useRef<SceneMeshes>({
@@ -239,6 +240,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
   useEffect(() => { playerFacingRef.current = playerFacing; }, [playerFacing]);
+  useEffect(() => { hoveredTileRef.current = hoveredTile; }, [hoveredTile]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -496,13 +498,14 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
           south: 0, north: Math.PI, east: Math.PI / 2, west: -Math.PI / 2,
           se: Math.PI / 4, sw: -Math.PI / 4, ne: (3 * Math.PI) / 4, nw: (-3 * Math.PI) / 4,
         };
-        meshesRef.current.player.rotation.y = facingAngles[playerFacing] ?? 0;
+        meshesRef.current.player.rotation.y = facingAngles[playerFacingRef.current] ?? 0;
       }
       if (meshesRef.current.companion) meshesRef.current.companion.rotation.y = Math.sin(time * 0.7) * 0.08;
       if (meshesRef.current.hover) {
-        meshesRef.current.hover.visible = Boolean(hoveredTile);
-        if (hoveredTile) {
-          const p = gridToWorld(hoveredTile.x, hoveredTile.y, gridWidth, gridHeight);
+        const activeHover = hoveredTileRef.current;
+        meshesRef.current.hover.visible = Boolean(activeHover);
+        if (activeHover) {
+          const p = gridToWorld(activeHover.x, activeHover.y, gridWidth, gridHeight);
           meshesRef.current.hover.position.set(p.x, 0.02, p.z);
         }
       }
