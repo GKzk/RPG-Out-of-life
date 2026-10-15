@@ -227,6 +227,8 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
   const playerFacingRef = useRef(playerFacing);
   const hoveredTileRef = useRef(hoveredTile);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
+  const playerTargetRef = useRef(new THREE.Vector3());
+  const companionTargetRef = useRef(new THREE.Vector3());
   const reqIdRef = useRef<number>(0);
   const meshesRef = useRef<SceneMeshes>({
     tiles: [],
@@ -444,10 +446,12 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
 
     const player = buildSurvivor(character);
     player.position.copy(gridToWorld(playerPos.x, playerPos.y, gridWidth, gridHeight));
+    playerTargetRef.current.copy(player.position);
     scene.add(player);
     meshesRef.current.player = player;
     const companion = buildCompanion(selectedPetId);
     companion.position.copy(gridToWorld(companionPos.x, companionPos.y, gridWidth, gridHeight));
+    companionTargetRef.current.copy(companion.position);
     companion.visible = selectedPetId !== 'none' && Boolean(selectedPetId);
     scene.add(companion);
     meshesRef.current.companion = companion;
@@ -515,26 +519,35 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
         }
         positions.needsUpdate = true;
       }
+      const motionAlpha = 1 - Math.exp(-12 * delta);
       if (meshesRef.current.player) {
+        const player = meshesRef.current.player;
+        player.position.x += (playerTargetRef.current.x - player.position.x) * motionAlpha;
+        player.position.z += (playerTargetRef.current.z - player.position.z) * motionAlpha;
         const facingVectors: Record<SpriteDirection, [number, number]> = {
           south: [0, 1], north: [0, -1], east: [1, 0], west: [-1, 0],
           se: [0.707, 0.707], sw: [-0.707, 0.707], ne: [0.707, -0.707], nw: [-0.707, -0.707],
         };
         const [faceX, faceZ] = facingVectors[playerFacingRef.current] ?? [0, 1];
-        flashlight.position.set(meshesRef.current.player.position.x, 1.85, meshesRef.current.player.position.z);
+        flashlight.position.set(player.position.x, 1.85, player.position.z);
         flashlight.target.position.set(
-          meshesRef.current.player.position.x + faceX * 2.2,
+          player.position.x + faceX * 2.2,
           0.1,
-          meshesRef.current.player.position.z + faceZ * 2.2,
+          player.position.z + faceZ * 2.2,
         );
-        meshesRef.current.player.position.y = Math.sin(time * 2.3) * 0.012;
+        player.position.y = Math.sin(time * 2.3) * 0.012;
         const facingAngles: Record<SpriteDirection, number> = {
           south: 0, north: Math.PI, east: Math.PI / 2, west: -Math.PI / 2,
           se: Math.PI / 4, sw: -Math.PI / 4, ne: (3 * Math.PI) / 4, nw: (-3 * Math.PI) / 4,
         };
-        meshesRef.current.player.rotation.y = facingAngles[playerFacingRef.current] ?? 0;
+        player.rotation.y = facingAngles[playerFacingRef.current] ?? 0;
       }
-      if (meshesRef.current.companion) meshesRef.current.companion.rotation.y = Math.sin(time * 0.7) * 0.08;
+      if (meshesRef.current.companion) {
+        const companion = meshesRef.current.companion;
+        companion.position.x += (companionTargetRef.current.x - companion.position.x) * motionAlpha;
+        companion.position.z += (companionTargetRef.current.z - companion.position.z) * motionAlpha;
+        companion.rotation.y = Math.sin(time * 0.7) * 0.08;
+      }
       if (meshesRef.current.hover) {
         const activeHover = hoveredTileRef.current;
         meshesRef.current.hover.visible = Boolean(activeHover);
@@ -591,12 +604,10 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     const player = meshesRef.current.player;
     const companion = meshesRef.current.companion;
     if (player) {
-      const p = gridToWorld(playerPos.x, playerPos.y, gridWidth, gridHeight);
-      player.position.set(p.x, 0, p.z);
+      playerTargetRef.current.copy(gridToWorld(playerPos.x, playerPos.y, gridWidth, gridHeight));
     }
     if (companion) {
-      const p = gridToWorld(companionPos.x, companionPos.y, gridWidth, gridHeight);
-      companion.position.set(p.x, 0, p.z);
+      companionTargetRef.current.copy(gridToWorld(companionPos.x, companionPos.y, gridWidth, gridHeight));
       companion.visible = selectedPetId !== 'none' && Boolean(selectedPetId);
     }
   }, [
