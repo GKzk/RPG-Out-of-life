@@ -341,6 +341,9 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
           new THREE.Vector3(pos.x, type === 'wall' || type === 'bunker_gate' ? tileHeight / 2 - 0.03 : -0.08, pos.z),
         ) as THREE.Mesh;
         tile.userData = { gridX: x, gridY: y, baseColor: (tile.material as THREE.MeshStandardMaterial).color.clone() };
+        if (!(revealedTiles[y]?.[x] ?? true)) {
+          (tile.material as THREE.MeshStandardMaterial).color.multiplyScalar(0.22);
+        }
         allTiles[y][x] = tile;
 
         if (type === 'forest') {
@@ -383,6 +386,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
         // Track only decorative scene roots; gameplay tiles remain present and authoritative.
         scene.children.slice(firstChildIndex + 1).forEach((detail) => {
           detail.userData.fogGrid = { x, y };
+          detail.visible = revealedTiles[y]?.[x] ?? true;
           fogDecorations.push(detail);
         });
       }
@@ -403,6 +407,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       roof.rotation.y = Math.PI / 4;
       hut.position.set(pos.x + (index % 2 ? 0.04 : -0.04), 0, pos.z);
       hut.userData.fogGrid = { x, y };
+      hut.visible = revealedTiles[y]?.[x] ?? true;
       fogDecorations.push(hut);
       scene.add(hut);
     });
@@ -417,6 +422,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       const p = gridToWorld(poi.x, poi.y, gridWidth, gridHeight);
       marker.position.set(p.x, 0, p.z);
       marker.userData = { poiId: poi.id };
+      marker.visible = revealedTiles[poi.y]?.[poi.x] ?? true;
       scene.add(marker);
       poiMarkers.push(marker);
     });
@@ -430,6 +436,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       const p = gridToWorld(enemy.x, enemy.y, gridWidth, gridHeight);
       marker.position.set(p.x, 0, p.z);
       marker.userData = { gridX: enemy.x, gridY: enemy.y };
+      marker.visible = revealedTiles[enemy.y]?.[enemy.x] ?? true;
       scene.add(marker);
       enemyMarkers.push(marker);
     });
