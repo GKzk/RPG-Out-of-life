@@ -223,6 +223,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const onTileClickRef = useRef(onTileClick);
   const onTileHoverRef = useRef(onTileHover);
+  const playerFacingRef = useRef(playerFacing);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const reqIdRef = useRef<number>(0);
   const meshesRef = useRef<SceneMeshes>({
@@ -237,6 +238,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
 
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
   useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
+  useEffect(() => { playerFacingRef.current = playerFacing; }, [playerFacing]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -329,7 +331,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
         const tile = addMesh(
           scene,
           new THREE.BoxGeometry(0.98, tileHeight, 0.98),
-          material,
+          material.clone(),
           new THREE.Vector3(pos.x, type === 'wall' || type === 'bunker_gate' ? tileHeight / 2 - 0.03 : -0.08, pos.z),
         ) as THREE.Mesh;
         tile.userData = { gridX: x, gridY: y };
