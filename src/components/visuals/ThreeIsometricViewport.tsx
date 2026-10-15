@@ -443,9 +443,12 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     meshesRef.current.enemyMarkers = enemyMarkers;
 
     const player = buildSurvivor(character);
+    player.position.copy(gridToWorld(playerPos.x, playerPos.y, gridWidth, gridHeight));
     scene.add(player);
     meshesRef.current.player = player;
     const companion = buildCompanion(selectedPetId);
+    companion.position.copy(gridToWorld(companionPos.x, companionPos.y, gridWidth, gridHeight));
+    companion.visible = selectedPetId !== 'none' && Boolean(selectedPetId);
     scene.add(companion);
     meshesRef.current.companion = companion;
 
@@ -593,7 +596,20 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       companion.position.set(p.x, 0, p.z);
       companion.visible = selectedPetId !== 'none' && Boolean(selectedPetId);
     }
-  }, [playerPos, companionPos, gridWidth, gridHeight, selectedPetId]);
+  }, [
+    playerPos,
+    companionPos,
+    gridWidth,
+    gridHeight,
+    selectedPetId,
+    terrain,
+    character.gender,
+    character.equippedArmorId,
+    character.equippedWeaponId,
+    flashlightOn,
+    pois,
+    enemies,
+  ]);
 
   useEffect(() => {
     meshesRef.current.tiles.forEach((row, y) => row.forEach((tile, x) => {
