@@ -32,6 +32,7 @@ type SceneMeshes = {
   hover: THREE.Mesh | null;
   poiMarkers: THREE.Group[];
   enemyMarkers: THREE.Group[];
+  fogDecorations: THREE.Object3D[];
 };
 
 const makeMaterial = (color: number, roughness = 0.86, metalness = 0) =>
@@ -235,6 +236,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     hover: null,
     poiMarkers: [],
     enemyMarkers: [],
+    fogDecorations: [],
   });
 
   useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
@@ -312,6 +314,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     const wood = makeMaterial(0x5a4532);
     const woodLight = makeMaterial(0x755a3d);
     const allTiles: THREE.Mesh[][] = [];
+    const fogDecorations: THREE.Object3D[] = [];
 
     for (let y = 0; y < gridHeight; y++) {
       allTiles[y] = [];
@@ -330,6 +333,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
         if (type === 'debris') material = brick;
         if (type === 'wall' || type === 'bunker_gate') tileHeight = type === 'bunker_gate' ? 2.4 : 1.45;
 
+        const firstChildIndex = scene.children.length;
         const tile = addMesh(
           scene,
           new THREE.BoxGeometry(0.98, tileHeight, 0.98),
@@ -376,9 +380,15 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
         } else if (type === 'path' && seeded(x, y, 14) > 0.62) {
           addMesh(scene, new THREE.DodecahedronGeometry(0.055, 0), wood, new THREE.Vector3(pos.x + 0.2, 0.015, pos.z - 0.18), false);
         }
+        // Track only decorative scene roots; gameplay tiles remain present and authoritative.
+        scene.children.slice(firstChildIndex + 1).forEach((detail) => {
+          detail.userData.fogGrid = { x, y };
+          fogDecorations.push(detail);
+        });
       }
     }
     meshesRef.current.tiles = allTiles;
+    meshesRef.current.fogDecorations = fogDecorations;
 
     // A subtle broken-roof village silhouette at the edges makes open sectors feel less like a board.
     const hutPositions = terrain.flatMap((row, y) => row.map((type, x) => ({ type, x, y }))).filter(({ type }) => type === 'wall').slice(0, 5);
@@ -392,6 +402,8 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       const roof = addMesh(hut, new THREE.ConeGeometry(0.62, 0.38, 4), makeMaterial(0x393b34), new THREE.Vector3(0, 1.0, 0));
       roof.rotation.y = Math.PI / 4;
       hut.position.set(pos.x + (index % 2 ? 0.04 : -0.04), 0, pos.z);
+      hut.userData.fogGrid = { x, y };
+      fogDecorations.push(hut);
       scene.add(hut);
     });
 
@@ -558,7 +570,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       renderer.domElement.remove();
       rendererRef.current = null;
       cameraRef.current = null;
-      meshesRef.current = { tiles: [], player: null, companion: null, particles: null, hover: null, poiMarkers: [], enemyMarkers: [] };
+      meshesRef.current = { tiles: [], player: null, companion: null, particles: null, hover: null, poiMarkers: [], enemyMarkers: [], fogDecorations: [] };
     };
   }, [terrain, gridWidth, gridHeight, character.gender, character.equippedArmorId, character.equippedWeaponId, selectedPetId, flashlightOn, pois, enemies]);
 
@@ -589,6 +601,11 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       material.opacity = 1;
       material.depthWrite = true;
     }));
+    meshesRef.current.fogDecorations.forEach((detail) => {
+      const data = detail.userData.fogGrid as { x?: number; y?: number } | undefined;
+      if (data?.x === undefined || data.y === undefined) return;
+      detail.visible = revealedTiles[data.y]?.[data.x] ?? true;
+    });
     meshesRef.current.poiMarkers.forEach((marker) => {
       const data = marker.userData as { poiId?: string };
       const poi = pois.find((item) => item.id === data.poiId);
