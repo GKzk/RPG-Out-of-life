@@ -490,13 +490,15 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       const tile = getTileAtPointer();
-      onTileHover(tile?.x ?? null, tile?.y ?? null);
+      onTileHoverRef.current(tile?.x ?? null, tile?.y ?? null);
     };
+    const handlePointerLeave = () => onTileHoverRef.current(null, null);
     const handleClick = () => {
       const tile = getTileAtPointer();
       if (tile) onTileClickRef.current(tile.x, tile.y);
     };
     renderer.domElement.addEventListener('pointermove', handlePointerMove);
+    renderer.domElement.addEventListener('pointerleave', handlePointerLeave);
     renderer.domElement.addEventListener('click', handleClick);
 
     const clock = new THREE.Clock();
@@ -567,6 +569,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     return () => {
       cancelAnimationFrame(reqIdRef.current);
       renderer.domElement.removeEventListener('pointermove', handlePointerMove);
+      renderer.domElement.removeEventListener('pointerleave', handlePointerLeave);
       renderer.domElement.removeEventListener('click', handleClick);
       resizeObserver.disconnect();
       scene.traverse((object) => {
