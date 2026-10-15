@@ -24,12 +24,195 @@ interface ThreeIsometricViewportProps {
   flashlightOn: boolean;
 }
 
+type SceneMeshes = {
+  tiles: THREE.Mesh[][];
+  player: THREE.Group | null;
+  companion: THREE.Group | null;
+  particles: THREE.Points | null;
+  hover: THREE.Mesh | null;
+  poiMarkers: THREE.Group[];
+  enemyMarkers: THREE.Group[];
+  fogDecorations: THREE.Object3D[];
+};
+
+const makeMaterial = (color: number, roughness = 0.86, metalness = 0) =>
+  new THREE.MeshStandardMaterial({ color, roughness, metalness });
+
+const addMesh = (
+  parent: THREE.Object3D,
+  geometry: THREE.BufferGeometry,
+  material: THREE.Material,
+  position: THREE.Vector3,
+  castShadow = true,
+) => {
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.copy(position);
+  mesh.castShadow = castShadow;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+  return mesh;
+};
+
+const seeded = (x: number, y: number, salt = 0) => {
+  const value = Math.sin(x * 127.1 + y * 311.7 + salt * 74.7) * 43758.5453;
+  return value - Math.floor(value);
+};
+
+const gridToWorld = (x: number, y: number, width: number, height: number) =>
+  new THREE.Vector3(x - width / 2 + 0.5, 0, y - height / 2 + 0.5);
+
+function buildSurvivor(character: Character) {
+  const group = new THREE.Group();
+  const armor = ITEM_DATABASE.find((item) => item.id === character.equippedArmorId);
+  const weapon = ITEM_DATABASE.find((item) => item.id === character.equippedWeaponId);
+  let coatColor = 0x554638;
+  let coatMetalness = 0.05;
+  if (armor?.id === 'metal_armor') {
+    coatColor = 0x778078;
+    coatMetalness = 0.58;
+  } else if (armor?.id === 'combat_armor') {
+    coatColor = 0x303a35;
+    coatMetalness = 0.24;
+  }
+
+  const coat = makeMaterial(coatColor, 0.82, coatMetalness);
+  const clothDark = makeMaterial(0x292a25, 0.94);
+  const skin = makeMaterial(character.gender === 'female' ? 0xc99773 : 0xb98460, 0.78);
+  const hair = makeMaterial(character.gender === 'female' ? 0x3a2920 : 0x33291f, 0.9);
+  const leather = makeMaterial(0x3b3025, 0.92);
+  const metal = makeMaterial(0x454945, 0.42, 0.72);
+  const strap = makeMaterial(0x272a25, 0.85);
+
+  // Legs, boots and torso use overlapping low-poly forms for a readable silhouette.
+  addMesh(group, new THREE.CapsuleGeometry(0.105, 0.34, 3, 6), clothDark, new THREE.Vector3(-0.13, 0.28, 0));
+  addMesh(group, new THREE.CapsuleGeometry(0.105, 0.34, 3, 6), clothDark, new THREE.Vector3(0.13, 0.28, 0));
+  addMesh(group, new THREE.BoxGeometry(0.19, 0.09, 0.29), leather, new THREE.Vector3(-0.13, 0.055, 0.045));
+  addMesh(group, new THREE.BoxGeometry(0.19, 0.09, 0.29), leather, new THREE.Vector3(0.13, 0.055, 0.045));
+  addMesh(group, new THREE.CapsuleGeometry(0.22, 0.3, 4, 8), coat, new THREE.Vector3(0, 0.78, 0));
+  addMesh(group, new THREE.BoxGeometry(0.39, 0.055, 0.28), leather, new THREE.Vector3(0, 0.61, 0));
+  addMesh(group, new THREE.CylinderGeometry(0.035, 0.035, 0.4, 6), metal, new THREE.Vector3(0, 0.62, 0.17));
+
+  // Arms angle slightly forward, leaving space for a visible weapon.
+  const leftArm = addMesh(group, new THREE.CapsuleGeometry(0.075, 0.29, 3, 6), coat, new THREE.Vector3(-0.28, 0.75, 0.09));
+  leftArm.rotation.z = -0.24;
+  const rightArm = addMesh(group, new THREE.CapsuleGeometry(0.075, 0.29, 3, 6), coat, new THREE.Vector3(0.28, 0.75, 0.09));
+  rightArm.rotation.z = 0.24;
+  addMesh(group, new THREE.SphereGeometry(0.075, 8, 6), skin, new THREE.Vector3(-0.32, 0.58, 0.16));
+  addMesh(group, new THREE.SphereGeometry(0.075, 8, 6), skin, new THREE.Vector3(0.32, 0.58, 0.16));
+
+  addMesh(group, new THREE.SphereGeometry(0.16, 12, 10), skin, new THREE.Vector3(0, 1.13, 0.015));
+  addMesh(group, new THREE.SphereGeometry(0.164, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.47), hair, new THREE.Vector3(0, 1.17, -0.015));
+  // Scarf, shoulder strap and compact field backpack add layered detail.
+  addMesh(group, new THREE.TorusGeometry(0.12, 0.035, 5, 12), leather, new THREE.Vector3(0, 0.98, 0.015));
+  addMesh(group, new THREE.BoxGeometry(0.25, 0.35, 0.14), strap, new THREE.Vector3(0, 0.78, -0.19));
+  addMesh(group, new THREE.BoxGeometry(0.12, 0.2, 0.16), leather, new THREE.Vector3(-0.17, 0.75, -0.2));
+  addMesh(group, new THREE.BoxGeometry(0.11, 0.18, 0.16), leather, new THREE.Vector3(0.17, 0.75, -0.2));
+
+  // A helmet-like headpiece is intentionally separate and visually understated.
+  addMesh(group, new THREE.SphereGeometry(0.17, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), metal, new THREE.Vector3(0, 1.22, 0));
+  if (weapon) {
+    const weaponGroup = new THREE.Group();
+    addMesh(weaponGroup, new THREE.BoxGeometry(0.075, 0.075, 0.58), metal, new THREE.Vector3(0, 0, 0.25));
+    addMesh(weaponGroup, new THREE.BoxGeometry(0.095, 0.15, 0.13), leather, new THREE.Vector3(0, -0.075, 0.04));
+    addMesh(weaponGroup, new THREE.BoxGeometry(0.045, 0.06, 0.17), clothDark, new THREE.Vector3(0, 0.015, 0.05));
+    weaponGroup.position.set(0.27, 0.63, 0.19);
+    weaponGroup.rotation.x = -0.1;
+    group.add(weaponGroup);
+  }
+  group.traverse((object) => {
+    if (object instanceof THREE.Mesh) object.castShadow = true;
+  });
+  group.scale.setScalar(0.92);
+  return group;
+}
+
+function buildCompanion(petId: string) {
+  const group = new THREE.Group();
+  const furColor = petId === 'cat' ? 0x5a554c : petId === 'boar' ? 0x514034 : petId === 'crow' ? 0x202522 : petId === 'ferret' ? 0x876846 : 0x684a32;
+  const fur = makeMaterial(furColor, 0.94);
+  const dark = makeMaterial(0x252722, 0.82);
+  const collar = makeMaterial(0x873c2c, 0.6, 0.1);
+
+  if (petId === 'none' || !petId) return group;
+  if (petId === 'crow') {
+    addMesh(group, new THREE.SphereGeometry(0.19, 9, 7), fur, new THREE.Vector3(0, 0.42, 0));
+    addMesh(group, new THREE.ConeGeometry(0.07, 0.2, 5), makeMaterial(0x9d7440, 0.75), new THREE.Vector3(0, 0.4, 0.2));
+    const wingL = addMesh(group, new THREE.ConeGeometry(0.12, 0.34, 5), dark, new THREE.Vector3(-0.16, 0.43, -0.02));
+    const wingR = addMesh(group, new THREE.ConeGeometry(0.12, 0.34, 5), dark, new THREE.Vector3(0.16, 0.43, -0.02));
+    wingL.rotation.z = -Math.PI / 2.5;
+    wingR.rotation.z = Math.PI / 2.5;
+    addMesh(group, new THREE.ConeGeometry(0.09, 0.28, 5), dark, new THREE.Vector3(0, 0.23, -0.18)).rotation.x = Math.PI;
+  } else if (petId === 'cat' || petId === 'ferret') {
+    const length = petId === 'cat' ? 0.55 : 0.62;
+    addMesh(group, new THREE.SphereGeometry(0.23, 10, 7), fur, new THREE.Vector3(0, 0.25, 0));
+    addMesh(group, new THREE.SphereGeometry(0.15, 10, 7), fur, new THREE.Vector3(0.22, 0.32, 0.1));
+    addMesh(group, new THREE.ConeGeometry(0.055, 0.14, 5), fur, new THREE.Vector3(0.15, 0.46, 0.1));
+    addMesh(group, new THREE.ConeGeometry(0.055, 0.14, 5), fur, new THREE.Vector3(0.29, 0.46, 0.1));
+    const tail = addMesh(group, new THREE.CylinderGeometry(0.035, 0.065, length, 6), fur, new THREE.Vector3(-0.29, 0.32, -0.04));
+    tail.rotation.z = -Math.PI / 2.8;
+  } else {
+    const isBoar = petId === 'boar';
+    addMesh(group, new THREE.SphereGeometry(isBoar ? 0.3 : 0.24, 10, 7), fur, new THREE.Vector3(0, 0.27, 0));
+    addMesh(group, new THREE.SphereGeometry(isBoar ? 0.2 : 0.16, 10, 7), fur, new THREE.Vector3(0.23, 0.32, 0.1));
+    for (const x of [-0.16, 0.16]) {
+      addMesh(group, new THREE.CylinderGeometry(0.045, 0.055, isBoar ? 0.18 : 0.22, 6), dark, new THREE.Vector3(x, 0.12, 0));
+    }
+    if (isBoar) {
+      addMesh(group, new THREE.ConeGeometry(0.07, 0.18, 5), makeMaterial(0xd4c3a0, 0.8), new THREE.Vector3(0.27, 0.28, 0.2));
+    } else {
+      addMesh(group, new THREE.SphereGeometry(0.055, 8, 6), collar, new THREE.Vector3(0.02, 0.34, 0.12));
+      addMesh(group, new THREE.ConeGeometry(0.06, 0.2, 5), fur, new THREE.Vector3(0.15, 0.47, 0.06));
+      addMesh(group, new THREE.ConeGeometry(0.06, 0.2, 5), fur, new THREE.Vector3(0.3, 0.47, 0.06));
+    }
+  }
+  group.scale.setScalar(0.78);
+  return group;
+}
+
+function addTree(scene: THREE.Scene, x: number, z: number, variant: number, materials: THREE.Material[]) {
+  const [bark, foliage, foliageLight] = materials;
+  const tree = new THREE.Group();
+  addMesh(tree, new THREE.CylinderGeometry(0.09, 0.14, 1.1, 7), bark, new THREE.Vector3(0, 0.55, 0));
+  if (variant % 2 === 0) {
+    addMesh(tree, new THREE.ConeGeometry(0.62, 1.35, 7), foliage, new THREE.Vector3(0, 1.38, 0));
+    addMesh(tree, new THREE.ConeGeometry(0.45, 1.05, 7), foliageLight, new THREE.Vector3(0, 1.92, 0));
+  } else {
+    addMesh(tree, new THREE.IcosahedronGeometry(0.62, 1), foliage, new THREE.Vector3(0, 1.45, 0));
+    addMesh(tree, new THREE.IcosahedronGeometry(0.4, 1), foliageLight, new THREE.Vector3(0.2, 1.88, 0.04));
+  }
+  tree.position.set(x, 0, z);
+  tree.rotation.y = seeded(Math.round(x * 10), Math.round(z * 10)) * Math.PI;
+  scene.add(tree);
+}
+
+function addRuinDetails(scene: THREE.Scene, x: number, z: number, seed: number, materials: THREE.Material[]) {
+  const [concrete, brick, rebar] = materials;
+  const rubbleCount = 2 + Math.floor(seeded(x * 13, z * 17, seed) * 4);
+  for (let i = 0; i < rubbleCount; i++) {
+    const piece = addMesh(
+      scene,
+      new THREE.DodecahedronGeometry(0.12 + seeded(i, seed, 2) * 0.18, 0),
+      i % 2 ? brick : concrete,
+      new THREE.Vector3(x + (seeded(i, seed, 3) - 0.5) * 0.7, 0.14, z + (seeded(i, seed, 4) - 0.5) * 0.7),
+    );
+    piece.rotation.set(seeded(i, seed, 5), seeded(i, seed, 6), seeded(i, seed, 7));
+  }
+  if (seeded(seed, x, 8) > 0.48) {
+    const rod = addMesh(scene, new THREE.CylinderGeometry(0.018, 0.018, 0.72, 5), rebar, new THREE.Vector3(x + 0.18, 0.32, z - 0.12));
+    rod.rotation.z = 0.55 + seeded(seed, z, 9) * 0.4;
+  }
+}
+
 export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
   terrain,
   gridWidth,
   gridHeight,
   playerPos,
+  playerFacing,
   companionPos,
+  selectedPetId,
+  pois,
+  enemies,
   revealedTiles,
   hoveredTile,
   onTileClick,
@@ -39,337 +222,419 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
+  const onTileClickRef = useRef(onTileClick);
+  const onTileHoverRef = useRef(onTileHover);
+  const playerFacingRef = useRef(playerFacing);
+  const hoveredTileRef = useRef(hoveredTile);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const reqIdRef = useRef<number>(0);
-
-  const meshesRef = useRef<{
-    tiles: THREE.Mesh[][];
-    player: THREE.Group | null;
-    companion: THREE.Group | null;
-    particles: THREE.Points | null;
-  }>({
+  const meshesRef = useRef<SceneMeshes>({
     tiles: [],
     player: null,
     companion: null,
     particles: null,
+    hover: null,
+    poiMarkers: [],
+    enemyMarkers: [],
+    fogDecorations: [],
   });
 
+  useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
+  useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
+  useEffect(() => { playerFacingRef.current = playerFacing; }, [playerFacing]);
+  useEffect(() => { hoveredTileRef.current = hoveredTile; }, [hoveredTile]);
+
   useEffect(() => {
-    if (!containerRef.current) return;
-    const width = containerRef.current.clientWidth || 800;
-    const height = containerRef.current.clientHeight || 550;
-
-    // 1. Scene setup with post-apo atmosphere fog
+    const container = containerRef.current;
+    if (!container) return;
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 550;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0c0b);
-    scene.fog = new THREE.FogExp2(0x0a0c0b, 0.035);
-    sceneRef.current = scene;
+    scene.background = new THREE.Color(0x101511);
+    scene.fog = new THREE.FogExp2(0x101511, 0.022);
 
-    // 2. Isometric Orthographic Camera (ATOM RPG / Fallout style)
     const aspect = width / height;
-    const d = 14;
-    const camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 0.1, 1000);
-    camera.position.set(22, 28, 22);
+    const viewSize = Math.max(gridWidth, gridHeight) * 1.35;
+    const camera = new THREE.OrthographicCamera(-viewSize * aspect / 2, viewSize * aspect / 2, viewSize / 2, -viewSize / 2, 0.1, 200);
+    camera.position.set(18, 22, 18);
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    // 3. WebGL Renderer with ACESFilmic Tone Mapping
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.08;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
+    container.replaceChildren(renderer.domElement);
 
-    containerRef.current.replaceChildren(renderer.domElement);
-
-    // 4. Lighting Rig
-    const ambientLight = new THREE.AmbientLight(0xd4af37, 0.35);
-    scene.add(ambientLight);
-
-    const sunLight = new THREE.DirectionalLight(0xffedd0, 1.4);
-    sunLight.position.set(20, 35, 20);
-    sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.bias = -0.0005;
-    scene.add(sunLight);
-
-    const flashlight = new THREE.SpotLight(0xffeedd, flashlightOn ? 3.5 : 0.8, 18, Math.PI / 4, 0.5, 1);
-    flashlight.position.set(0, 8, 0);
-    flashlight.castShadow = true;
+    scene.add(new THREE.HemisphereLight(0xc8d3c3, 0x27241e, 1.35));
+    const sun = new THREE.DirectionalLight(0xffe6c5, 2.1);
+    sun.position.set(12, 20, 8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1536, 1536);
+    sun.shadow.camera.left = -gridWidth;
+    sun.shadow.camera.right = gridWidth;
+    sun.shadow.camera.top = gridHeight;
+    sun.shadow.camera.bottom = -gridHeight;
+    sun.shadow.bias = -0.00025;
+    scene.add(sun);
+    const flashlight = new THREE.SpotLight(0xffe0b0, flashlightOn ? 3.2 : 0, flashlightOn ? 9 : 0, Math.PI / 5, 0.55, 1.4);
+    flashlight.castShadow = flashlightOn;
+    flashlight.position.set(0, 2.2, 0);
     scene.add(flashlight);
+    scene.add(flashlight.target);
 
-    // 5. Radioactive Dust & Ash Particles
-    const particleCount = 300;
-    const particleGeo = new THREE.BufferGeometry();
-    const particlePositions = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount * 3; i += 3) {
-      particlePositions[i] = (Math.random() - 0.5) * 30;
-      particlePositions[i + 1] = Math.random() * 8;
-      particlePositions[i + 2] = (Math.random() - 0.5) * 30;
+    const ground = addMesh(
+      scene,
+      new THREE.PlaneGeometry(gridWidth + 2, gridHeight + 2),
+      makeMaterial(0x34382e, 0.98),
+      new THREE.Vector3(0, -0.17, 0),
+      false,
+    );
+    ground.rotation.x = -Math.PI / 2;
+
+    const groundMat = makeMaterial(0x4a4b3c);
+    const pathMat = makeMaterial(0x5a5143);
+    const grassMat = makeMaterial(0x34442d);
+    const forestMat = makeMaterial(0x233322);
+    const concreteMat = makeMaterial(0x66675e, 0.95);
+    const metalMat = makeMaterial(0x665044, 0.62, 0.48);
+    const waterMat = makeMaterial(0x24434a, 0.3, 0.25);
+    const radiationMat = new THREE.MeshStandardMaterial({ color: 0x665a2a, roughness: 0.62, emissive: 0x423400, emissiveIntensity: 0.42 });
+    const tileMaterials = [groundMat, pathMat, grassMat, forestMat, concreteMat, metalMat, waterMat, radiationMat];
+    const bark = makeMaterial(0x44382b);
+    const foliage = makeMaterial(0x263b29);
+    const foliageLight = makeMaterial(0x3b5032);
+    const brick = makeMaterial(0x655044);
+    const rebar = makeMaterial(0x56483e, 0.55, 0.7);
+    const wood = makeMaterial(0x5a4532);
+    const woodLight = makeMaterial(0x755a3d);
+    const allTiles: THREE.Mesh[][] = [];
+    const fogDecorations: THREE.Object3D[] = [];
+
+    for (let y = 0; y < gridHeight; y++) {
+      allTiles[y] = [];
+      for (let x = 0; x < gridWidth; x++) {
+        const type = terrain[y]?.[x] || 'ground';
+        const pos = gridToWorld(x, y, gridWidth, gridHeight);
+        let material = groundMat;
+        let tileHeight = 0.12;
+        if (type === 'path' || type === 'asphalt' || type === 'metal_floor') material = pathMat;
+        if (type === 'grass') material = grassMat;
+        if (type === 'forest') material = forestMat;
+        if (type === 'wall' || type === 'concrete' || type === 'bunker_gate') material = concreteMat;
+        if (type === 'fence') material = metalMat;
+        if (type === 'water') material = waterMat;
+        if (type === 'radiation') material = radiationMat;
+        if (type === 'debris') material = brick;
+        if (type === 'wall' || type === 'bunker_gate') tileHeight = type === 'bunker_gate' ? 2.4 : 1.45;
+
+        const firstChildIndex = scene.children.length;
+        const tile = addMesh(
+          scene,
+          new THREE.BoxGeometry(0.98, tileHeight, 0.98),
+          material.clone(),
+          new THREE.Vector3(pos.x, type === 'wall' || type === 'bunker_gate' ? tileHeight / 2 - 0.03 : -0.08, pos.z),
+        ) as THREE.Mesh;
+        tile.userData = { gridX: x, gridY: y, baseColor: (tile.material as THREE.MeshStandardMaterial).color.clone() };
+        if (!(revealedTiles[y]?.[x] ?? true)) {
+          (tile.material as THREE.MeshStandardMaterial).color.multiplyScalar(0.22);
+        }
+        allTiles[y][x] = tile;
+
+        if (type === 'forest') {
+          addTree(scene, pos.x + (seeded(x, y) - 0.5) * 0.24, pos.z + (seeded(y, x, 2) - 0.5) * 0.24, Math.floor(seeded(x, y, 3) * 4), [bark, foliage, foliageLight]);
+          if (seeded(x, y, 5) > 0.35) {
+            addMesh(scene, new THREE.IcosahedronGeometry(0.18, 0), grassMat, new THREE.Vector3(pos.x + 0.28, 0.04, pos.z + 0.22));
+          }
+        } else if (type === 'grass') {
+          for (let tuft = 0; tuft < 3; tuft++) {
+            const blade = addMesh(
+              scene,
+              new THREE.ConeGeometry(0.035, 0.18 + seeded(x, y, tuft) * 0.12, 4),
+              tuft % 2 ? foliage : foliageLight,
+              new THREE.Vector3(pos.x + (seeded(x, y, tuft + 8) - 0.5) * 0.62, 0.08, pos.z + (seeded(y, x, tuft + 9) - 0.5) * 0.62),
+              false,
+            );
+            blade.rotation.z = (seeded(x, y, tuft + 10) - 0.5) * 0.45;
+          }
+        } else if (type === 'wall' || type === 'debris' || type === 'bunker_gate') {
+          addRuinDetails(scene, pos.x, pos.z, x * 31 + y * 17, [concreteMat, brick, rebar]);
+          if (type === 'wall' && seeded(x, y, 12) > 0.55) {
+            const beam = addMesh(scene, new THREE.BoxGeometry(0.16, 0.12, 1.12), wood, new THREE.Vector3(pos.x, 0.7, pos.z));
+            beam.rotation.z = (seeded(x, y, 13) - 0.5) * 0.3;
+          }
+        } else if (type === 'fence') {
+          for (const offset of [-0.35, 0.35]) {
+            addMesh(scene, new THREE.BoxGeometry(0.09, 0.72, 0.09), wood, new THREE.Vector3(pos.x + offset, 0.29, pos.z));
+          }
+          addMesh(scene, new THREE.BoxGeometry(0.96, 0.07, 0.07), woodLight, new THREE.Vector3(pos.x, 0.48, pos.z));
+          addMesh(scene, new THREE.BoxGeometry(0.96, 0.07, 0.07), wood, new THREE.Vector3(pos.x, 0.23, pos.z));
+        } else if (type === 'radiation') {
+          const ring = addMesh(scene, new THREE.TorusGeometry(0.27, 0.025, 5, 18), radiationMat, new THREE.Vector3(pos.x, 0.04, pos.z), false);
+          ring.rotation.x = -Math.PI / 2;
+        } else if (type === 'water') {
+          const ripple = addMesh(scene, new THREE.TorusGeometry(0.22, 0.012, 4, 18), makeMaterial(0x6a8b88, 0.3), new THREE.Vector3(pos.x, -0.005, pos.z), false);
+          ripple.rotation.x = -Math.PI / 2;
+        } else if (type === 'path' && seeded(x, y, 14) > 0.62) {
+          addMesh(scene, new THREE.DodecahedronGeometry(0.055, 0), wood, new THREE.Vector3(pos.x + 0.2, 0.015, pos.z - 0.18), false);
+        }
+        // Track only decorative scene roots; gameplay tiles remain present and authoritative.
+        scene.children.slice(firstChildIndex + 1).forEach((detail) => {
+          detail.userData.fogGrid = { x, y };
+          detail.visible = revealedTiles[y]?.[x] ?? true;
+          fogDecorations.push(detail);
+        });
+      }
     }
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-    const particleMat = new THREE.PointsMaterial({
-      color: 0xffaa44,
-      size: 0.08,
-      transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending,
+    meshesRef.current.tiles = allTiles;
+    meshesRef.current.fogDecorations = fogDecorations;
+
+    // A subtle broken-roof village silhouette at the edges makes open sectors feel less like a board.
+    const hutPositions = terrain.flatMap((row, y) => row.map((type, x) => ({ type, x, y }))).filter(({ type }) => type === 'wall').slice(0, 5);
+    hutPositions.forEach(({ x, y }, index) => {
+      const pos = gridToWorld(x, y, gridWidth, gridHeight);
+      if (seeded(x, y, 18) < 0.3) return;
+      const hut = new THREE.Group();
+      addMesh(hut, new THREE.BoxGeometry(0.78, 0.72, 0.72), wood, new THREE.Vector3(0, 0.38, 0));
+      addMesh(hut, new THREE.BoxGeometry(0.88, 0.09, 0.82), woodLight, new THREE.Vector3(0, 0.78, 0));
+      addMesh(hut, new THREE.BoxGeometry(0.18, 0.4, 0.06), makeMaterial(0x211e19), new THREE.Vector3(0.18, 0.25, 0.37));
+      const roof = addMesh(hut, new THREE.ConeGeometry(0.62, 0.38, 4), makeMaterial(0x393b34), new THREE.Vector3(0, 1.0, 0));
+      roof.rotation.y = Math.PI / 4;
+      hut.position.set(pos.x + (index % 2 ? 0.04 : -0.04), 0, pos.z);
+      hut.userData.fogGrid = { x, y };
+      hut.visible = revealedTiles[y]?.[x] ?? true;
+      fogDecorations.push(hut);
+      scene.add(hut);
     });
-    const particles = new THREE.Points(particleGeo, particleMat);
+
+    // Distinct, small markers for POIs and enemies; gameplay still owns all interactions.
+    const poiMarkers: THREE.Group[] = [];
+    pois.forEach((poi) => {
+      const marker = new THREE.Group();
+      const markerMat = makeMaterial(poi.completed ? 0x66705c : 0xd6a65a, 0.55, 0.15);
+      addMesh(marker, new THREE.CylinderGeometry(0.025, 0.025, 0.48, 6), markerMat, new THREE.Vector3(0, 0.25, 0));
+      addMesh(marker, new THREE.OctahedronGeometry(0.14, 0), markerMat, new THREE.Vector3(0, 0.56, 0));
+      const p = gridToWorld(poi.x, poi.y, gridWidth, gridHeight);
+      marker.position.set(p.x, 0, p.z);
+      marker.userData = { poiId: poi.id };
+      marker.visible = revealedTiles[poi.y]?.[poi.x] ?? true;
+      scene.add(marker);
+      poiMarkers.push(marker);
+    });
+    meshesRef.current.poiMarkers = poiMarkers;
+
+    const enemyMarkers: THREE.Group[] = [];
+    enemies.forEach((enemy) => {
+      const marker = new THREE.Group();
+      const enemyMat = makeMaterial(enemy.alerted ? 0xe34b3b : 0x9b493e, 0.55, 0.1);
+      addMesh(marker, new THREE.ConeGeometry(0.18, 0.42, 5), enemyMat, new THREE.Vector3(0, 0.25, 0));
+      const p = gridToWorld(enemy.x, enemy.y, gridWidth, gridHeight);
+      marker.position.set(p.x, 0, p.z);
+      marker.userData = { gridX: enemy.x, gridY: enemy.y };
+      marker.visible = revealedTiles[enemy.y]?.[enemy.x] ?? true;
+      scene.add(marker);
+      enemyMarkers.push(marker);
+    });
+    meshesRef.current.enemyMarkers = enemyMarkers;
+
+    const player = buildSurvivor(character);
+    scene.add(player);
+    meshesRef.current.player = player;
+    const companion = buildCompanion(selectedPetId);
+    scene.add(companion);
+    meshesRef.current.companion = companion;
+
+    const hover = addMesh(
+      scene,
+      new THREE.BoxGeometry(1.01, 0.035, 1.01),
+      new THREE.MeshBasicMaterial({ color: 0xd8b16a, transparent: true, opacity: 0.32, depthWrite: false }),
+      new THREE.Vector3(0, 0.025, 0),
+      false,
+    );
+    hover.visible = false;
+    meshesRef.current.hover = hover;
+
+    const particleCount = 120;
+    const particleGeometry = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      particlePositions[i * 3] = (Math.random() - 0.5) * gridWidth;
+      particlePositions[i * 3 + 1] = 0.25 + Math.random() * 4;
+      particlePositions[i * 3 + 2] = (Math.random() - 0.5) * gridHeight;
+    }
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    const particles = new THREE.Points(particleGeometry, new THREE.PointsMaterial({ color: 0xc6a77b, size: 0.035, transparent: true, opacity: 0.38 }));
     scene.add(particles);
     meshesRef.current.particles = particles;
 
-    // 6. Build Detailed PBR Terrain & Destroyed Buildings with Rebar
-    const tileSize = 1;
-    const tiles: THREE.Mesh[][] = [];
-
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x2e332c, roughness: 0.9, metalness: 0.1 });
-    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x545852, roughness: 0.8, metalness: 0.2 });
-    const rustyMetalMat = new THREE.MeshStandardMaterial({ color: 0x6e473b, roughness: 0.6, metalness: 0.8 });
-    const grassMat = new THREE.MeshStandardMaterial({ color: 0x2c3b28, roughness: 0.9 });
-    const waterMat = new THREE.MeshStandardMaterial({ color: 0x16363b, roughness: 0.3, metalness: 0.5 });
-    const radMat = new THREE.MeshStandardMaterial({ color: 0x473b1a, roughness: 0.7, emissive: 0x222200, emissiveIntensity: 0.3 });
-
-    const tileGeo = new THREE.BoxGeometry(tileSize, 0.25, tileSize);
-    const wallGeo = new THREE.BoxGeometry(tileSize, 1.8, tileSize);
-    const rebarGeo = new THREE.CylinderGeometry(0.03, 0.03, 2.2, 6);
-
-    for (let y = 0; y < gridHeight; y++) {
-      tiles[y] = [];
-      for (let x = 0; x < gridWidth; x++) {
-        const tType = terrain[y]?.[x] || 'ground';
-        let mat = groundMat;
-        let isWall = false;
-
-        if (tType === 'wall') {
-          mat = concreteMat;
-          isWall = true;
-        } else if (['asphalt', 'concrete', 'metal_floor'].includes(tType)) {
-          mat = concreteMat;
-        } else if (['grass', 'forest'].includes(tType)) {
-          mat = grassMat;
-        } else if (tType === 'water') {
-          mat = waterMat;
-        } else if (tType === 'radiation') {
-          mat = radMat;
-        } else if (tType === 'fence') {
-          mat = rustyMetalMat;
-        }
-
-        const mesh = new THREE.Mesh(isWall ? wallGeo : tileGeo, mat);
-        const posX = (x - gridWidth / 2) * tileSize;
-        const posZ = (y - gridHeight / 2) * tileSize;
-        const posY = isWall ? 0.9 : 0;
-
-        mesh.position.set(posX, posY, posZ);
-        mesh.receiveShadow = true;
-        mesh.castShadow = true;
-        mesh.userData = { gridX: x, gridY: y };
-        scene.add(mesh);
-
-        if (isWall && Math.random() > 0.4) {
-          const rebar = new THREE.Mesh(rebarGeo, rustyMetalMat);
-          rebar.position.set(posX + (Math.random() - 0.5) * 0.4, posY + 0.9, posZ + (Math.random() - 0.5) * 0.4);
-          rebar.rotation.z = (Math.random() - 0.5) * 0.4;
-          rebar.castShadow = true;
-          scene.add(rebar);
-        }
-
-        tiles[y][x] = mesh;
-      }
-    }
-    meshesRef.current.tiles = tiles;
-
-    // 7. Dynamic 3D Survivor Model Customization based on Equipped Armor & Weapon
-    const playerGroup = new THREE.Group();
-    const equippedArmor = ITEM_DATABASE.find((i) => i.id === character.equippedArmorId);
-    const equippedWeapon = ITEM_DATABASE.find((i) => i.id === character.equippedWeaponId);
-
-    // Armor color / material customization
-    let armorColor = 0x594635; // default survivor jacket
-    let metalness = 0.1;
-    if (equippedArmor?.id === 'metal_armor') {
-      armorColor = 0x8a9a86; // heavy steel plates
-      metalness = 0.7;
-    } else if (equippedArmor?.id === 'combat_armor') {
-      armorColor = 0x313831; // tactical kevlar
-      metalness = 0.4;
-    }
-
-    const armorMat = new THREE.MeshStandardMaterial({ color: armorColor, roughness: 0.7, metalness });
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.7 });
-    const gearMat = new THREE.MeshStandardMaterial({ color: 0x1f2421, roughness: 0.5, metalness: 0.6 });
-
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.7, 8), armorMat);
-    torso.position.y = 0.55;
-    torso.castShadow = true;
-    playerGroup.add(torso);
-
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), skinMat);
-    head.position.y = 1.1;
-    head.castShadow = true;
-    playerGroup.add(head);
-
-    // Helmet / Gas Mask Customization
-    const headGear = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), gearMat);
-    headGear.position.set(0, 1.08, 0.12);
-    headGear.castShadow = true;
-    playerGroup.add(headGear);
-
-    // Weapon in hand visualization (Rifle vs Knife)
-    if (equippedWeapon) {
-      const weaponMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.8 });
-      const weaponMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), weaponMat);
-      weaponMesh.position.set(0.3, 0.55, 0.2);
-      weaponMesh.castShadow = true;
-      playerGroup.add(weaponMesh);
-    }
-
-    scene.add(playerGroup);
-    meshesRef.current.player = playerGroup;
-
-    // 8. Build 3D Companion Model (Hound)
-    const companionGroup = new THREE.Group();
-    const dogMat = new THREE.MeshStandardMaterial({ color: 0x5c4430, roughness: 0.85 });
-    const collarMat = new THREE.MeshStandardMaterial({ color: 0xa13a25, roughness: 0.5 });
-
-    const dogBody = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.3, 0.35), dogMat);
-    dogBody.position.y = 0.22;
-    dogBody.castShadow = true;
-    companionGroup.add(dogBody);
-
-    const dogHead = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.26, 0.28), dogMat);
-    dogHead.position.set(0.32, 0.38, 0);
-    dogHead.castShadow = true;
-    companionGroup.add(dogHead);
-
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.03, 8, 16), collarMat);
-    collar.position.set(0.22, 0.32, 0);
-    collar.rotation.y = Math.PI / 2;
-    companionGroup.add(collar);
-
-    scene.add(companionGroup);
-    meshesRef.current.companion = companionGroup;
-
-    // 9. Raycasting & Mouse Interaction
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-
-    const handlePointerMove = (e: MouseEvent) => {
+    const getTileAtPointer = () => {
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(allTiles.flat(), false);
+      if (!hits.length) return null;
+      const data = hits[0].object.userData as { gridX?: number; gridY?: number };
+      if (data.gridX === undefined || data.gridY === undefined) return null;
+      return { x: data.gridX, y: data.gridY };
+    };
+    const handlePointerMove = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const flatTiles: THREE.Object3D[] = [];
-      tiles.forEach((row) => row.forEach((t) => flatTiles.push(t)));
-
-      const intersects = raycaster.intersectObjects(flatTiles);
-      if (intersects.length > 0) {
-        const userData = intersects[0].object.userData;
-        if (userData && userData.gridX !== undefined) {
-          onTileHover(userData.gridX, userData.gridY);
-        }
-      } else {
-        onTileHover(null, null);
-      }
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const tile = getTileAtPointer();
+      onTileHover(tile?.x ?? null, tile?.y ?? null);
     };
-
     const handleClick = () => {
-      raycaster.setFromCamera(mouse, camera);
-      const flatTiles: THREE.Object3D[] = [];
-      tiles.forEach((row) => row.forEach((t) => flatTiles.push(t)));
-
-      const intersects = raycaster.intersectObjects(flatTiles);
-      if (intersects.length > 0) {
-        const userData = intersects[0].object.userData;
-        if (userData && userData.gridX !== undefined) {
-          onTileClick(userData.gridX, userData.gridY);
-        }
-      }
+      const tile = getTileAtPointer();
+      if (tile) onTileClickRef.current(tile.x, tile.y);
     };
+    renderer.domElement.addEventListener('pointermove', handlePointerMove);
+    renderer.domElement.addEventListener('click', handleClick);
 
-    const domElem = renderer.domElement;
-    domElem.addEventListener('pointermove', handlePointerMove);
-    domElem.addEventListener('click', handleClick);
-
-    // 10. Animation Loop
     const clock = new THREE.Clock();
     const animate = () => {
       reqIdRef.current = requestAnimationFrame(animate);
       const delta = clock.getDelta();
-
+      const time = clock.elapsedTime;
       if (meshesRef.current.particles) {
-        const posAttr = meshesRef.current.particles.geometry.attributes.position as THREE.BufferAttribute;
-        const arr = posAttr.array as Float32Array;
-        for (let i = 1; i < arr.length; i += 3) {
-          arr[i] -= delta * 0.3;
-          if (arr[i] < 0) arr[i] = 8;
+        const positions = meshesRef.current.particles.geometry.attributes.position as THREE.BufferAttribute;
+        const array = positions.array as Float32Array;
+        for (let i = 1; i < array.length; i += 3) {
+          array[i] -= delta * 0.12;
+          if (array[i] < 0.15) array[i] = 3.8 + Math.random() * 0.7;
         }
-        posAttr.needsUpdate = true;
+        positions.needsUpdate = true;
       }
-
-      if (cameraRef.current && meshesRef.current.player) {
-        const targetX = meshesRef.current.player.position.x;
-        const targetZ = meshesRef.current.player.position.z;
-        cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, targetX + 16, delta * 3);
-        cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, targetZ + 16, delta * 3);
-        cameraRef.current.lookAt(targetX, 0, targetZ);
-        flashlight.position.set(targetX, 6, targetZ);
+      if (meshesRef.current.player) {
+        const facingVectors: Record<SpriteDirection, [number, number]> = {
+          south: [0, 1], north: [0, -1], east: [1, 0], west: [-1, 0],
+          se: [0.707, 0.707], sw: [-0.707, 0.707], ne: [0.707, -0.707], nw: [-0.707, -0.707],
+        };
+        const [faceX, faceZ] = facingVectors[playerFacingRef.current] ?? [0, 1];
+        flashlight.position.set(meshesRef.current.player.position.x, 1.85, meshesRef.current.player.position.z);
+        flashlight.target.position.set(
+          meshesRef.current.player.position.x + faceX * 2.2,
+          0.1,
+          meshesRef.current.player.position.z + faceZ * 2.2,
+        );
+        meshesRef.current.player.position.y = Math.sin(time * 2.3) * 0.012;
+        const facingAngles: Record<SpriteDirection, number> = {
+          south: 0, north: Math.PI, east: Math.PI / 2, west: -Math.PI / 2,
+          se: Math.PI / 4, sw: -Math.PI / 4, ne: (3 * Math.PI) / 4, nw: (-3 * Math.PI) / 4,
+        };
+        meshesRef.current.player.rotation.y = facingAngles[playerFacingRef.current] ?? 0;
       }
-
+      if (meshesRef.current.companion) meshesRef.current.companion.rotation.y = Math.sin(time * 0.7) * 0.08;
+      if (meshesRef.current.hover) {
+        const activeHover = hoveredTileRef.current;
+        meshesRef.current.hover.visible = Boolean(activeHover);
+        if (activeHover) {
+          const p = gridToWorld(activeHover.x, activeHover.y, gridWidth, gridHeight);
+          meshesRef.current.hover.position.set(p.x, 0.02, p.z);
+        }
+      }
+      if (meshesRef.current.player && cameraRef.current) {
+        const target = meshesRef.current.player.position;
+        cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, target.x + 14, delta * 2.4);
+        cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, target.z + 14, delta * 2.4);
+        cameraRef.current.lookAt(target.x, 0, target.z);
+      }
       renderer.render(scene, camera);
     };
     animate();
 
-    const handleResize = () => {
-      if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
-      const w = containerRef.current.clientWidth;
-      const h = containerRef.current.clientHeight;
-      const aspectW = w / h;
-      cameraRef.current.left = -d * aspectW;
-      cameraRef.current.right = d * aspectW;
-      cameraRef.current.updateProjectionMatrix();
-      rendererRef.current.setSize(w, h);
-    };
-    window.addEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(() => {
+      if (!container.clientWidth || !container.clientHeight) return;
+      const nextAspect = container.clientWidth / container.clientHeight;
+      const nextViewSize = Math.max(gridWidth, gridHeight) * 1.35;
+      camera.left = -nextViewSize * nextAspect / 2;
+      camera.right = nextViewSize * nextAspect / 2;
+      camera.top = nextViewSize / 2;
+      camera.bottom = -nextViewSize / 2;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+    resizeObserver.observe(container);
 
     return () => {
       cancelAnimationFrame(reqIdRef.current);
-      domElem.removeEventListener('pointermove', handlePointerMove);
-      domElem.removeEventListener('click', handleClick);
-      window.removeEventListener('resize', handleResize);
+      renderer.domElement.removeEventListener('pointermove', handlePointerMove);
+      renderer.domElement.removeEventListener('click', handleClick);
+      resizeObserver.disconnect();
+      scene.traverse((object) => {
+        if (object instanceof THREE.Mesh || object instanceof THREE.Points) {
+          object.geometry.dispose();
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          materials.forEach((material) => material.dispose());
+        }
+      });
       renderer.dispose();
+      renderer.domElement.remove();
+      rendererRef.current = null;
+      cameraRef.current = null;
+      meshesRef.current = { tiles: [], player: null, companion: null, particles: null, hover: null, poiMarkers: [], enemyMarkers: [], fogDecorations: [] };
     };
-  }, [gridWidth, gridHeight, character.equippedArmorId, character.equippedWeaponId]);
+  }, [terrain, gridWidth, gridHeight, character.gender, character.equippedArmorId, character.equippedWeaponId, selectedPetId, flashlightOn, pois, enemies]);
 
   useEffect(() => {
-    const tileSize = 1;
-    if (meshesRef.current.player) {
-      const px = (playerPos.x - gridWidth / 2) * tileSize;
-      const pz = (playerPos.y - gridHeight / 2) * tileSize;
-      meshesRef.current.player.position.set(px, 0, pz);
+    const player = meshesRef.current.player;
+    const companion = meshesRef.current.companion;
+    if (player) {
+      const p = gridToWorld(playerPos.x, playerPos.y, gridWidth, gridHeight);
+      player.position.set(p.x, 0, p.z);
     }
-    if (meshesRef.current.companion) {
-      const cx = (companionPos.x - gridWidth / 2) * tileSize;
-      const cz = (companionPos.y - gridHeight / 2) * tileSize;
-      meshesRef.current.companion.position.set(cx, 0, cz);
+    if (companion) {
+      const p = gridToWorld(companionPos.x, companionPos.y, gridWidth, gridHeight);
+      companion.position.set(p.x, 0, p.z);
+      companion.visible = selectedPetId !== 'none' && Boolean(selectedPetId);
     }
-  }, [playerPos, companionPos, gridWidth, gridHeight]);
+  }, [playerPos, companionPos, gridWidth, gridHeight, selectedPetId]);
+
+  useEffect(() => {
+    meshesRef.current.tiles.forEach((row, y) => row.forEach((tile, x) => {
+      const isRevealed = revealedTiles[y]?.[x] ?? true;
+      const material = tile.material as THREE.MeshStandardMaterial;
+      const baseColor = tile.userData.baseColor as THREE.Color | undefined;
+      if (baseColor) material.color.copy(baseColor);
+      if (!isRevealed) material.color.multiplyScalar(0.22);
+      // Keep fogged cells opaque: opacity alone was ignored when transparent=false,
+      // and transparent tiles caused depth-sorting artefacts in the tactical grid.
+      material.transparent = false;
+      material.opacity = 1;
+      material.depthWrite = true;
+    }));
+    meshesRef.current.fogDecorations.forEach((detail) => {
+      const data = detail.userData.fogGrid as { x?: number; y?: number } | undefined;
+      if (data?.x === undefined || data.y === undefined) return;
+      detail.visible = revealedTiles[data.y]?.[data.x] ?? true;
+    });
+    meshesRef.current.poiMarkers.forEach((marker) => {
+      const data = marker.userData as { poiId?: string };
+      const poi = pois.find((item) => item.id === data.poiId);
+      marker.visible = Boolean(poi && (revealedTiles[poi.y]?.[poi.x] ?? true));
+    });
+    meshesRef.current.enemyMarkers.forEach((marker) => {
+      const data = marker.userData as { gridX?: number; gridY?: number };
+      marker.visible = data.gridX !== undefined && data.gridY !== undefined
+        ? (revealedTiles[data.gridY]?.[data.gridX] ?? true)
+        : true;
+    });
+  }, [revealedTiles, pois]);
 
   return (
-    <div className="relative w-full h-[520px] md:h-[620px] rounded-2xl overflow-hidden border-2 border-amber-600/70 bg-neutral-950 shadow-[0_0_40px_rgba(217,119,6,0.3)]">
+    <div className="relative w-full h-[520px] md:h-[620px] rounded-2xl overflow-hidden border border-stone-600/70 bg-neutral-950 shadow-[0_0_36px_rgba(70,80,62,0.24)]">
       <div ref={containerRef} className="w-full h-full cursor-crosshair" />
-
-      {/* Cinematic Post-Apo HUD Tag */}
-      <div className="absolute top-3 left-3 px-3.5 py-1.5 rounded-lg bg-neutral-950/90 border border-amber-500/60 text-[11px] text-amber-300 font-mono flex items-center gap-2 backdrop-blur-md pointer-events-none shadow-lg">
-        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-        <span className="font-bold tracking-wider">ATOM RPG 3D ENGINE · КАСТОМИЗАЦИЯ БРОНИ И ОРУЖИЯ</span>
+      <div className="absolute top-3 left-3 px-3 py-1.5 rounded-md bg-neutral-950/85 border border-stone-500/60 text-[10px] text-stone-200 font-mono flex items-center gap-2 backdrop-blur pointer-events-none">
+        <span className="w-2 h-2 rounded-full bg-emerald-500/90" />
+        <span className="font-semibold tracking-wider">ПОЛЕВОЙ СЕКТОР · 3D ПРОСМОТР</span>
+      </div>
+      <div className="absolute bottom-3 right-3 px-2 py-1 rounded bg-neutral-950/75 border border-stone-700/70 text-[10px] text-stone-300 font-mono pointer-events-none">
+        {gridWidth} × {gridHeight} · ИЗОМЕТРИЧЕСКАЯ КАМЕРА
       </div>
     </div>
   );
