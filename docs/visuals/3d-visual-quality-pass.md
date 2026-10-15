@@ -12,6 +12,9 @@ Improve the existing Three.js isometric sector without changing the RPG rules or
 - Added low-poly trees, grass tufts, rubble, exposed rebar, broken wooden beams, and simple ruined-hut silhouettes.
 - Added visible POI/enemy markers and a hovered-cell highlight.
 - Added a restrained flashlight, ambient dust, orthographic framing, resize observation, and disposal of scene geometry/materials on unmount.
+- Fixed fog-of-war tile shading so unrevealed tiles are consistently darkened without relying on ineffective opacity settings; enemy markers now follow tile visibility.
+- Directed the flashlight according to the survivor's current facing rather than always illuminating the same map direction.
+- Added a GitHub Actions validation workflow for typecheck, tests, and production build.
 - Changed the viewport label to project-neutral Russian wording instead of presenting the prototype as an ATOM RPG engine.
 
 ## Preserved constraints
@@ -25,9 +28,11 @@ Improve the existing Three.js isometric sector without changing the RPG rules or
 
 Run from the project root:
 
-1. `npm run lint`
+1. `npm run lint` (TypeScript typecheck)
 2. `npm test`
 3. `npm run build`
+
+A GitHub Actions workflow now runs these checks on pushes to `main`/`feat/**`, pull requests targeting `main`, and manual dispatch. A successful result must be observed on the PR before treating this change as verified.
 
 Then manually inspect:
 
