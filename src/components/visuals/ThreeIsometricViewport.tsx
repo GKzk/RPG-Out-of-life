@@ -252,7 +252,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     scene.fog = new THREE.FogExp2(0x101511, 0.022);
 
     const aspect = width / height;
-    const viewSize = Math.max(gridWidth, gridHeight) * 0.88;
+    const viewSize = Math.max(gridWidth, gridHeight) * 1.35;
     const camera = new THREE.OrthographicCamera(-viewSize * aspect / 2, viewSize * aspect / 2, viewSize / 2, -viewSize / 2, 0.1, 200);
     camera.position.set(18, 22, 18);
     camera.lookAt(0, 0, 0);
@@ -522,7 +522,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     const resizeObserver = new ResizeObserver(() => {
       if (!container.clientWidth || !container.clientHeight) return;
       const nextAspect = container.clientWidth / container.clientHeight;
-      const nextViewSize = Math.max(gridWidth, gridHeight) * 0.88;
+      const nextViewSize = Math.max(gridWidth, gridHeight) * 1.35;
       camera.left = -nextViewSize * nextAspect / 2;
       camera.right = nextViewSize * nextAspect / 2;
       camera.top = nextViewSize / 2;
