@@ -50,6 +50,8 @@ import {
   MAP_GRID_WIDTH,
   MAP_GRID_HEIGHT,
 } from '../src/data/villageMapData';
+import { ALL_SECTORS, getSectorById, isPassableTile, getTileProperties } from '../src/data/sectors/worldSectorManager';
+import { createDefaultStarterSurvivor } from '../src/context/GameContext';
 import { getXpForLevel, getXpForNextLevel, getXpToNextLevel, getLevelForXp, isPerkLevel, MAX_LEVEL } from '../src/utils/progression';
 
 for (let v = 1; v <= 10; v++) assert.equal(getAttributeMod(v), v - 5);
@@ -806,3 +808,85 @@ INITIAL_PATROL_ENEMIES.forEach((enemy) => {
   });
 });
 console.log('Village tactical map & visual prototype data tests: PASS');
+
+// 16. Radial Sectors, World Hub & Modular Equipment Data regression checks
+const sectorIds = ['village_hub', 'dead_forest', 'radio_tower', 'bunker_17'] as const;
+assert.deepEqual(Object.keys(ALL_SECTORS).sort(), [...sectorIds].sort(), 'All 4 radial sectors exist in ALL_SECTORS');
+
+sectorIds.forEach((secId) => {
+  const sec = getSectorById(secId);
+  assert.equal(sec.id, secId, `Sector ${secId} has matching ID`);
+  assert.ok(sec.nameRu.length > 0, `Sector ${secId} has non-empty nameRu`);
+  assert.equal(sec.terrain.length, sec.gridHeight, `Sector ${secId} terrain height matches gridHeight`);
+  sec.terrain.forEach((row, rIdx) => {
+    assert.equal(row.length, sec.gridWidth, `Sector ${secId} row ${rIdx} width matches gridWidth`);
+  });
+
+  // Verify POIs
+  sec.pois.forEach((poi) => {
+    assert.ok(poi.x >= 0 && poi.x < sec.gridWidth, `Sector ${secId} POI ${poi.id} x is within bounds`);
+    assert.ok(poi.y >= 0 && poi.y < sec.gridHeight, `Sector ${secId} POI ${poi.id} y is within bounds`);
+    assert.ok(poi.descriptionRu.length > 0, `Sector ${secId} POI ${poi.id} has description`);
+    if (poi.lootItems) {
+      poi.lootItems.forEach((loot) => {
+        assert.ok(
+          ITEM_DATABASE.some((item) => item.id === loot.itemId),
+          `Sector ${secId} POI ${poi.id} loot item ${loot.itemId} exists in database`
+        );
+      });
+    }
+  });
+
+  // Verify transitions
+  sec.transitions.forEach((trans) => {
+    assert.ok(
+      sectorIds.includes(trans.targetSectorId),
+      `Sector ${secId} transition target ${trans.targetSectorId} is a valid sector ID`
+    );
+    assert.ok(trans.x >= 0 && trans.x < sec.gridWidth, `Transition ${trans.id} x is within bounds`);
+    assert.ok(trans.y >= 0 && trans.y < sec.gridHeight, `Transition ${trans.id} y is within bounds`);
+  });
+});
+
+// Passability and properties
+assert.equal(isPassableTile('ground'), true, 'ground is passable');
+assert.equal(isPassableTile('path'), true, 'path is passable');
+assert.equal(isPassableTile('grass'), true, 'grass is passable');
+assert.equal(isPassableTile('wall'), false, 'wall is impassable');
+assert.equal(isPassableTile('forest'), false, 'forest is impassable');
+assert.equal(isPassableTile('fence'), false, 'fence is impassable');
+assert.equal(getTileProperties('radiation').isHazard, true, 'radiation is hazard');
+assert.equal(getTileProperties('grass').providesCover, true, 'grass provides cover');
+
+// Verify new sector gear items in ITEM_DATABASE
+const requiredSectorItems = [
+  'sks_carbine',
+  'tactical_vest_6b2',
+  'gas_mask_gp5',
+  'bunker_keycard',
+  'radio_transmitter',
+  'forest_herbs',
+];
+requiredSectorItems.forEach((itemId) => {
+  const found = ITEM_DATABASE.find((i) => i.id === itemId);
+  assert.ok(found, `Item ${itemId} exists in ITEM_DATABASE`);
+  assert.ok(found.nameRu.length > 0, `Item ${itemId} has non-empty nameRu`);
+});
+
+// 17. Default Starter Archetype & Visual Game Boot Verification
+const defaultStarter = createDefaultStarterSurvivor();
+assert.ok(defaultStarter.character, 'Default starter character exists');
+assert.equal(defaultStarter.character.name, 'Никита Сергеевич', 'Starter is Nikita hunter archetype');
+assert.equal(defaultStarter.character.level, 1, 'Starter is level 1');
+assert.ok(defaultStarter.character.currentHp > 0, 'Starter has positive currentHp');
+assert.ok(defaultStarter.character.currentAp >= 9, 'Starter has valid AP pool');
+assert.equal(defaultStarter.character.petId, 'hound', 'Starter has loyal hound companion');
+assert.equal(defaultStarter.character.equippedWeaponId, 'hunting_knife', 'Starter has hunting knife equipped');
+assert.equal(defaultStarter.character.equippedArmorId, 'survivor_jacket', 'Starter has survivor jacket equipped');
+assert.ok(defaultStarter.inventory.length >= 7, 'Starter has necessary supplies in inventory');
+assert.ok(defaultStarter.inventory.some((i) => i.item.id === 'elders_map'), 'Starter has elders_map');
+assert.ok(defaultStarter.inventory.some((i) => i.item.id === 'canteen_boiled_water'), 'Starter has boiled water canteen');
+assert.ok(defaultStarter.inventory.some((i) => i.item.id === 'stimpak'), 'Starter has stimpaks');
+
+console.log('Radial sectors, world hub, starter survivor & Fallout HUD data tests: PASS');
+

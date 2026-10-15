@@ -138,9 +138,61 @@ const INITIAL_SURVIVAL: SurvivalNeeds = {
   },
 };
 
+export function createDefaultStarterSurvivor(): { character: Character; inventory: InventoryItem[] } {
+  const preset = ARCHETYPE_PRESETS[0]; // Nikita Hunter
+  const baseSpecial: SpecialStats = { ...preset.special };
+  const initialSkillInvestments: Record<SkillName, number> = {
+    athletics: 0, stealth: 0, sleightOfHand: 0, unarmed: 0, melee: 0,
+    firearms: 0, explosives: 0, survival: 0, search: 0, navigation: 0,
+    insight: 0, medicine: 0, mechanics: 0, electronics: 0, science: 0,
+    crafting: 0, persuasion: 0, barter: 0, deception: 0, leadership: 0,
+    animalHandling: 0, performance: 0, energyWeapons: 0,
+  };
+
+  const newChar: Character = {
+    name: preset.titleRu,
+    gender: preset.gender,
+    avatarId: 'm1',
+    backgroundId: preset.backgroundId,
+    background: preset.subtitleRu,
+    petId: 'hound',
+    petState: createInitialPetState('hound'),
+    level: 1,
+    xp: 0,
+    baseSpecial,
+    effectiveSpecial: { ...baseSpecial },
+    taggedSkills: preset.taggedSkills,
+    skillPointsInvested: initialSkillInvestments,
+    feats: [preset.startingFeat],
+    survival: { ...INITIAL_SURVIVAL },
+    currentHp: 48,
+    currentAp: 10,
+    equippedWeaponId: 'hunting_knife',
+    equippedArmorId: 'survivor_jacket',
+  };
+
+  const effSpec = calculateEffectiveSpecial(baseSpecial, newChar.feats, newChar.survival);
+  const derived = calculateDerivedStats(newChar, effSpec, []);
+  newChar.currentHp = derived.maxHp;
+  newChar.currentAp = derived.maxAp;
+
+  const startingInventory: InventoryItem[] = [
+    { item: ITEM_DATABASE.find((i) => i.id === 'elders_map')!, quantity: 1 },
+    { item: ITEM_DATABASE.find((i) => i.id === 'hunting_knife')!, quantity: 1 },
+    { item: ITEM_DATABASE.find((i) => i.id === 'survivor_jacket')!, quantity: 1 },
+    { item: ITEM_DATABASE.find((i) => i.id === 'canteen_boiled_water')!, quantity: 1 },
+    { item: ITEM_DATABASE.find((i) => i.id === 'hardtack_rusks')!, quantity: 2 },
+    { item: ITEM_DATABASE.find((i) => i.id === 'dynamo_flashlight')!, quantity: 1 },
+    { item: ITEM_DATABASE.find((i) => i.id === 'stimpak')!, quantity: 2 },
+  ];
+
+  return { character: newChar, inventory: startingInventory };
+}
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [character, setCharacter] = useState<Character | null>(null);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const defaultStarter = React.useMemo(() => createDefaultStarterSurvivor(), []);
+  const [character, setCharacter] = useState<Character | null>(defaultStarter.character);
+  const [inventory, setInventory] = useState<InventoryItem[]>(defaultStarter.inventory);
   const [gameTimeHours, setGameTimeHours] = useState<number>(8); // 08:00 AM
   const [gameDay, setGameDay] = useState<number>(1);
   const [lastProvisionDay, setLastProvisionDay] = useState<number>(1);
@@ -270,7 +322,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newChar.currentAp = derived.maxAp;
 
     setCharacter(newChar);
-    setIsPrologueActive(true);
+    setIsPrologueActive(false);
 
     // Initial Starter Items (Canon v1.0)
     const startingInventory: InventoryItem[] = [

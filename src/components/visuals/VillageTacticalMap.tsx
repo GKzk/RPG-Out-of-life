@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
-import {
-  VILLAGE_TERRAIN_MAP,
-  INITIAL_VILLAGE_POIS,
-  INITIAL_PATROL_ENEMIES,
-  MAP_GRID_WIDTH,
-  MAP_GRID_HEIGHT,
-  MapPOI,
-  PatrolEnemy,
-  TileType,
-  GridPosition,
-} from '../../data/villageMapData';
+import { SectorId, SectorTileType } from '../../data/sectors/types';
+import { ALL_SECTORS, getSectorById, isPassableTile, getTileProperties } from '../../data/sectors/worldSectorManager';
+import { MapPOI, PatrolEnemy, GridPosition } from '../../data/villageMapData';
 import { PET_DEFINITIONS } from '../../data/pets';
-import { CharacterSprite } from './CharacterSprite';
-import { CompanionSprite } from './CompanionSprite';
+import { ITEM_DATABASE } from '../../data/items';
+import { ENEMY_DATABASE } from '../../data/enemies';
+import { SpriteDirection } from './CharacterSprite';
+import { IsometricGridRenderer } from './IsometricGridRenderer';
+import { ThreeIsometricViewport } from './ThreeIsometricViewport';
 import { CompanionCommandPanel } from './CompanionCommandPanel';
 import { InteractionDialogModal } from './InteractionDialogModal';
 import { SketchGalleryModal } from './SketchGalleryModal';
+import { CharacterPaperdoll } from './CharacterPaperdoll';
+import { RadialWorldMapModal } from './RadialWorldMapModal';
+import { FalloutDialogueModal } from '../dialogue/FalloutDialogueModal';
+import { ELDER_MATVEY_DIALOGUE, RAIDER_SENTRY_DIALOGUE } from '../../data/dialogueNodes';
 import {
   Compass,
   Eye,
@@ -33,6 +32,11 @@ import {
   Footprints,
   Info,
   CheckCircle,
+  Layers,
+  MapPin,
+  Move,
+  Volume2,
+  Tv,
 } from 'lucide-react';
 
 export const VillageTacticalMap: React.FC = () => {
@@ -40,549 +44,673 @@ export const VillageTacticalMap: React.FC = () => {
     character,
     effectiveSpecial,
     derivedStats,
+    inventory,
     addItemToInventory,
     addExperience,
     addLogMessage,
     startCombatEncounter,
+    equipWeapon,
+    equipArmor,
+    passTime,
   } = useGame();
 
   if (!character) return null;
 
-  // Player position
-  const [playerPos, setPlayerPos] = useState<GridPosition>({ x: 5, y: 5 });
-  const [playerFacing, setPlayerFacing] = useState<'north' | 'south' | 'east' | 'west'>('south');
-  const [companionPos, setCompanionPos] = useState<GridPosition>({ x: 4, y: 5 });
-  const [currentAp, setCurrentAp] = useState<number>(derivedStats?.maxAp || 10);
+  // Current Active Sector
+  const [currentSectorId, setCurrentSectorId] = useState<SectorId>('village_hub');
+  const sector = getSectorById(currentSectorId);
 
-  // Map state
-  const [pois, setPois] = useState<MapPOI[]>(INITIAL_VILLAGE_POIS);
-  const [patrol, setPatrol] = useState<PatrolEnemy[]>(INITIAL_PATROL_ENEMIES);
-  const [exploredTiles, setExploredTiles] = useState<boolean[][]>(() =>
-    Array(MAP_GRID_HEIGHT)
+  // Sector-specific State Records (preserves explored tiles and completed POIs when switching sectors)
+  const [sectorPois, setSectorPois] = useState<Record<SectorId, MapPOI[]>>({
+    village_hub: ALL_SECTORS.village_hub.pois,
+    dead_forest: ALL_SECTORS.dead_forest.pois,
+    radio_tower: ALL_SECTORS.radio_tower.pois,
+    bunker_17: ALL_SECTORS.bunker_17.pois,
+  });
+
+  const [sectorEnemies, setSectorEnemies] = useState<Record<SectorId, PatrolEnemy[]>>({
+    village_hub: ALL_SECTORS.village_hub.enemies,
+    dead_forest: ALL_SECTORS.dead_forest.enemies,
+    radio_tower: ALL_SECTORS.radio_tower.enemies,
+    bunker_17: ALL_SECTORS.bunker_17.enemies,
+  });
+
+  const [sectorExplored, setSectorExplored] = useState<Record<SectorId, boolean[][]>>({
+    village_hub: Array(ALL_SECTORS.village_hub.gridHeight)
       .fill(false)
-      .map(() => Array(MAP_GRID_WIDTH).fill(false))
-  );
+      .map(() => Array(ALL_SECTORS.village_hub.gridWidth).fill(false)),
+    dead_forest: Array(ALL_SECTORS.dead_forest.gridHeight)
+      .fill(false)
+      .map(() => Array(ALL_SECTORS.dead_forest.gridWidth).fill(false)),
+    radio_tower: Array(ALL_SECTORS.radio_tower.gridHeight)
+      .fill(false)
+      .map(() => Array(ALL_SECTORS.radio_tower.gridWidth).fill(false)),
+    bunker_17: Array(ALL_SECTORS.bunker_17.gridHeight)
+      .fill(false)
+      .map(() => Array(ALL_SECTORS.bunker_17.gridWidth).fill(false)),
+  });
 
-  // Active Modals & Buffs
+  // Player position & movement
+  const [playerPos, setPlayerPos] = useState<GridPosition>(sector.defaultSpawn);
+  const [playerFacing, setPlayerFacing] = useState<SpriteDirection>('south');
+  const [companionPos, setCompanionPos] = useState<GridPosition>({
+    x: Math.max(0, sector.defaultSpawn.x - 1),
+    y: sector.defaultSpawn.y,
+  });
+  const [currentAp, setCurrentAp] = useState<number>(derivedStats?.maxAp || 10);
+  const [stance, setStance] = useState<'normal' | 'sneak' | 'sprint'>('normal');
+
+  // Engine Display Options
+  const [viewMode, setViewMode] = useState<'isometric' | 'orthographic'>('isometric');
+  const [flashlightOn, setFlashlightOn] = useState<boolean>(true);
+  const [crtScanlines, setCrtScanlines] = useState<boolean>(true);
+  const [hoveredTile, setHoveredTile] = useState<GridPosition | null>(null);
+
+  // Active Modals & Overlays
   const [activePoi, setActivePoi] = useState<MapPOI | null>(null);
   const [showSketchGallery, setShowSketchGallery] = useState(false);
-  const [activeCompanionBuff, setActiveCompanionBuff] = useState<string | null>(null);
+  const [showPaperdoll, setShowPaperdoll] = useState(false);
+  const [showWorldMap, setShowWorldMap] = useState(false);
   const [scoutRevealedTurns, setScoutRevealedTurns] = useState<number>(0);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [safeRouteActive, setSafeRouteActive] = useState<boolean>(false);
+  const [is3DEngine, setIs3DEngine] = useState<boolean>(true);
 
   const selectedPet =
     PET_DEFINITIONS.find((p) => p.id === character?.petId) || PET_DEFINITIONS[0];
 
+  const currentTerrain = sector.terrain;
+  const currentPois = sectorPois[currentSectorId] || [];
+  const currentEnemies = sectorEnemies[currentSectorId] || [];
+  const explored = sectorExplored[currentSectorId] || [];
+
   // Helper: check if tile is walkable
   const isWalkable = (x: number, y: number): boolean => {
-    if (x < 0 || x >= MAP_GRID_WIDTH || y < 0 || y >= MAP_GRID_HEIGHT) return false;
-    const tile = VILLAGE_TERRAIN_MAP[y][x];
-    if (tile === 'wall' || tile === 'forest' || tile === 'fence') return false;
-    return true;
+    if (x < 0 || x >= sector.gridWidth || y < 0 || y >= sector.gridHeight) return false;
+    const tile = currentTerrain[y][x];
+    return isPassableTile(tile);
   };
 
-  // Helper: calculate distance
+  // Helper: Manhattan distance
   const getDistance = (pos1: GridPosition, pos2: GridPosition) => {
     return Math.abs(pos1.x - pos2.x) + Math.abs(pos1.y - pos2.y);
   };
 
-  // Reveal tiles around player
+  // Switch Sector Handler
+  const handleSwitchSector = (targetSectorId: SectorId, spawnX?: number, spawnY?: number) => {
+    const targetSector = getSectorById(targetSectorId);
+    setCurrentSectorId(targetSectorId);
+
+    const newSpawn = {
+      x: spawnX !== undefined ? spawnX : targetSector.defaultSpawn.x,
+      y: spawnY !== undefined ? spawnY : targetSector.defaultSpawn.y,
+    };
+
+    setPlayerPos(newSpawn);
+    setCompanionPos({
+      x: Math.max(0, newSpawn.x - 1),
+      y: newSpawn.y,
+    });
+    setCurrentAp(derivedStats?.maxAp || 10);
+    setAlertMessage(`Переход в локацию: ${targetSector.nameRu}`);
+    addLogMessage(`Вы прибыли в ${targetSector.nameRu}. ${targetSector.atmosphereRu}`);
+    if (passTime) passTime(1);
+  };
+
+  // Reveal tiles around player based on Perception (PER)
   useEffect(() => {
-    setExploredTiles((prev) => {
-      const next = prev.map((row) => [...row]);
-      const sightRadius = scoutRevealedTurns > 0 ? 8 : 3;
-      for (let y = 0; y < MAP_GRID_HEIGHT; y++) {
-        for (let x = 0; x < MAP_GRID_WIDTH; x++) {
+    setSectorExplored((prev) => {
+      const currentGrid = prev[currentSectorId] || [];
+      const nextGrid = currentGrid.map((row) => [...row]);
+      const basePerception = effectiveSpecial?.PER || 5;
+      const sightRadius = scoutRevealedTurns > 0 ? 10 : flashlightOn ? basePerception + 2 : basePerception;
+      let changed = false;
+
+      for (let y = 0; y < sector.gridHeight; y++) {
+        for (let x = 0; x < sector.gridWidth; x++) {
           if (getDistance({ x, y }, playerPos) <= sightRadius) {
-            next[y][x] = true;
+            if (nextGrid[y] && !nextGrid[y][x]) {
+              nextGrid[y][x] = true;
+              changed = true;
+            }
           }
         }
       }
-      return next;
+
+      if (!changed) return prev;
+      return { ...prev, [currentSectorId]: nextGrid };
     });
-  }, [playerPos, scoutRevealedTurns]);
+  }, [playerPos, scoutRevealedTurns, flashlightOn, currentSectorId, sector.gridHeight, sector.gridWidth, effectiveSpecial?.PER]);
 
-  // Handle player movement
+  // Handle tile click (movement & POI triggers)
   const handleTileClick = (targetX: number, targetY: number) => {
-    if (!isWalkable(targetX, targetY)) return;
-
-    const dist = getDistance(playerPos, { x: targetX, y: targetY });
-    // Move up to 1 tile per click (adjacent)
-    if (dist > 1) return;
-
-    if (currentAp < 1) {
-      setAlertMessage('Недостаточно Очков Действия (AP)! Завершите ход для восстановления сил.');
+    // Check if clicking directly on a transition tile
+    const transition = sector.transitions.find((t) => t.x === targetX && t.y === targetY);
+    if (transition && getDistance(playerPos, { x: targetX, y: targetY }) <= 2) {
+      handleSwitchSector(transition.targetSectorId, transition.targetSpawnX, transition.targetSpawnY);
       return;
     }
 
-    // Determine facing
-    if (targetX > playerPos.x) setPlayerFacing('east');
-    else if (targetX < playerPos.x) setPlayerFacing('west');
-    else if (targetY > playerPos.y) setPlayerFacing('south');
-    else if (targetY < playerPos.y) setPlayerFacing('north');
+    if (!isWalkable(targetX, targetY)) {
+      setAlertMessage('Препятствие: клетка непроходима!');
+      return;
+    }
 
-    // Move companion to previous player position
-    setCompanionPos({ ...playerPos });
-    // Move player
+    const dist = getDistance(playerPos, { x: targetX, y: targetY });
+    if (dist === 0) return;
+
+    // Movement AP calculation
+    const apCostPerTile = stance === 'sneak' ? 2 : stance === 'sprint' ? 1 : 1;
+    const requiredAp = Math.ceil(dist * apCostPerTile * (stance === 'sprint' ? 0.8 : 1));
+
+    if (currentAp < requiredAp) {
+      setAlertMessage(`Недостаточно ОД! Требуется ${requiredAp} ОД, доступно ${currentAp}. Завершите ход.`);
+      return;
+    }
+
+    // Determine facing direction
+    const dx = targetX - playerPos.x;
+    const dy = targetY - playerPos.y;
+    let newFacing: SpriteDirection = 'south';
+    if (Math.abs(dx) > Math.abs(dy)) {
+      newFacing = dx > 0 ? 'east' : 'west';
+    } else {
+      newFacing = dy > 0 ? 'south' : 'north';
+    }
+    setPlayerFacing(newFacing);
+
+    // Update positions
+    const oldPos = { ...playerPos };
     setPlayerPos({ x: targetX, y: targetY });
-    setCurrentAp((prev) => Math.max(0, prev - 1));
+    setCompanionPos(oldPos);
+    setCurrentAp((prev) => Math.max(0, prev - requiredAp));
+    setAlertMessage(null);
 
-    // Progress patrol enemy
-    advancePatrolTurn();
+    // Enemy Patrol movement tick
+    stepPatrolEnemies({ x: targetX, y: targetY });
 
-    // Check if player entered marauder vision cone
-    checkPatrolDetection({ x: targetX, y: targetY });
+    // Check if stepped into transition trigger
+    const arrivedTransition = sector.transitions.find((t) => t.x === targetX && t.y === targetY);
+    if (arrivedTransition) {
+      handleSwitchSector(arrivedTransition.targetSectorId, arrivedTransition.targetSpawnX, arrivedTransition.targetSpawnY);
+      return;
+    }
+
+    // Check for nearby POI
+    const nearPoi = currentPois.find(
+      (poi) => !poi.completed && getDistance({ x: targetX, y: targetY }, { x: poi.x, y: poi.y }) <= 1
+    );
+    if (nearPoi) {
+      setActivePoi(nearPoi);
+    }
   };
 
-  // Move patrol along their route
-  const advancePatrolTurn = () => {
-    setPatrol((prev) =>
-      prev.map((enemy) => {
-        const nextIndex = (enemy.currentRouteIndex + 1) % enemy.route.length;
-        const nextPos = enemy.route[nextIndex];
-        let nextFacing = enemy.facing;
-        if (nextPos.x > enemy.x) nextFacing = 'east';
-        else if (nextPos.x < enemy.x) nextFacing = 'west';
-        else if (nextPos.y > enemy.y) nextFacing = 'south';
-        else if (nextPos.y < enemy.y) nextFacing = 'north';
+  // Advance enemy patrol paths and check detection
+  const stepPatrolEnemies = (newPlayerPos: GridPosition) => {
+    setSectorEnemies((prev) => {
+      const updated = currentEnemies.map((enemy) => {
+        let nextIndex = (enemy.currentRouteIndex + 1) % enemy.route.length;
+        let nextPos = enemy.route[nextIndex];
+
+        // Detection check
+        const distToPlayer = getDistance(nextPos, newPlayerPos);
+        const tileProps = getTileProperties(currentTerrain[newPlayerPos.y]?.[newPlayerPos.x] || 'ground');
+        const effectiveVision = tileProps.providesCover || stance === 'sneak' ? Math.max(1, enemy.visionRange - 2) : enemy.visionRange;
+
+        const isSpotted = distToPlayer <= effectiveVision;
+
+        if (isSpotted && !enemy.alerted) {
+          setAlertMessage(`ВНИМАНИЕ! ${enemy.nameRu} заметил движение! Уходите в укрытие или атакуйте.`);
+          addLogMessage(`[ТРЕВОГА] ${enemy.nameRu} насторожился и взял оружие на изготовку!`);
+        }
 
         return {
           ...enemy,
           x: nextPos.x,
           y: nextPos.y,
-          facing: nextFacing,
           currentRouteIndex: nextIndex,
+          alerted: isSpotted,
         };
-      })
-    );
+      });
+
+      return { ...prev, [currentSectorId]: updated };
+    });
+  };
+
+  // Turn reset / Rest action
+  const handleEndTurn = () => {
+    const maxAp = derivedStats?.maxAp || 10;
+    setCurrentAp(maxAp);
+    setAlertMessage('Ход завершен. Очки действия восстановлены (100%).');
+    addLogMessage('Вы выждали удобный момент, восстановив тактические силы.');
+
+    // Step enemies
+    stepPatrolEnemies(playerPos);
 
     if (scoutRevealedTurns > 0) {
       setScoutRevealedTurns((prev) => prev - 1);
     }
   };
 
-  // Check if enemy sees player
-  const checkPatrolDetection = (pos: GridPosition) => {
-    const isPlayerInGrass = VILLAGE_TERRAIN_MAP[pos.y][pos.x] === 'grass';
-    const isStealthBuffed = activeCompanionBuff?.includes('Барсик');
-
-    patrol.forEach((enemy) => {
-      // Vision cone: 2 cells ahead and 1 diagonal
-      let inVision = false;
-      if (enemy.facing === 'south' && pos.y > enemy.y && pos.y <= enemy.y + 2 && Math.abs(pos.x - enemy.x) <= 1) {
-        inVision = true;
-      } else if (enemy.facing === 'north' && pos.y < enemy.y && pos.y >= enemy.y - 2 && Math.abs(pos.x - enemy.x) <= 1) {
-        inVision = true;
-      } else if (enemy.facing === 'east' && pos.x > enemy.x && pos.x <= enemy.x + 2 && Math.abs(pos.y - enemy.y) <= 1) {
-        inVision = true;
-      } else if (enemy.facing === 'west' && pos.x < enemy.x && pos.x >= enemy.x - 2 && Math.abs(pos.y - enemy.y) <= 1) {
-        inVision = true;
-      }
-
-      if (inVision) {
-        if (isPlayerInGrass || isStealthBuffed) {
-          setAlertMessage('Внимание: Дозорный мародёр прошёл рядом, но густая трава скрыла вас!');
-          addLogMessage('Скрытность: Вы затаились в траве, избежав обнаружения патрулём.', 'info');
-        } else {
-          setAlertMessage('ТРЕВОГА! Дозорный мародёр заметил движение у ворот!');
-          addLogMessage('Обнаружение! Мародёр поднял карабин и вскинул руку к тревожному свистку!', 'hazard');
-        }
-      }
-    });
-  };
-
-  // Reset AP and end turn
-  const handleEndTurn = () => {
-    setCurrentAp(derivedStats?.maxAp || 10);
-    advancePatrolTurn();
-    setAlertMessage('Ход завершен. Очки действия восстановлены.');
-    addLogMessage('Тактический ход: позиция выверена, патруль сместился.', 'turn');
-  };
-
-  // Execute companion command
-  const handleExecuteCompanionCommand = (buffKey: string, commandNameRu: string) => {
-    setActiveCompanionBuff(commandNameRu);
-
-    if (buffKey === 'crow_scout') {
-      setScoutRevealedTurns(3);
-      addLogMessage('Каркун взмыл ввысь, открыв обзор на всю деревню и постройки.', 'info');
-    } else if (buffKey === 'hound_track') {
-      setSafeRouteActive(true);
-      addLogMessage('Байкал учуял запах костров бандитов и подсветил безопасную тропу.', 'info');
-    } else if (buffKey === 'hound_bark' || buffKey === 'crow_distract') {
-      // Rotate enemy away from player
-      setPatrol((prev) =>
-        prev.map((enemy) => ({
-          ...enemy,
-          facing: 'north',
-        }))
-      );
-      addLogMessage(`Отвлечение: ${commandNameRu} заставил часового повернуться к северным амбарам.`, 'hit');
-    } else if (buffKey === 'boar_ram') {
-      // Clear obstacle at (1, 6)
-      setPois((prev) =>
-        prev.map((p) => (p.id === 'heavy_rubble' ? { ...p, descriptionRu: 'Завал расчищен мощным ударом кабанчика!' } : p))
-      );
-      addLogMessage('Буян с глухим треском расколол сгнившие балки завала погреба!', 'hit');
+  // Companion Command Handler
+  const handleCompanionCommand = (commandId: string, commandNameRu: string) => {
+    const apCost = 2;
+    if (currentAp < apCost) {
+      setAlertMessage(`Недостаточно ОД для команды питомцу (${apCost} ОД)!`);
+      return;
     }
 
-    setTimeout(() => {
-      setActiveCompanionBuff(null);
-    }, 6000);
+    setCurrentAp((prev) => Math.max(0, prev - apCost));
+
+    switch (commandId) {
+      case 'scout_area':
+      case 'cat_sense':
+        setScoutRevealedTurns(3);
+        setAlertMessage(`Питомец ${selectedPet.nameRu} провел разведку! Радиус видимости увеличен.`);
+        addLogMessage(`[СПУТНИК] ${selectedPet.nameRu} исследовал сектор, подсветив тайники.`);
+        break;
+      case 'distract_guard':
+        setSectorEnemies((prev) => {
+          const stunned = currentEnemies.map((e) => ({ ...e, alerted: false, visionRange: 1 }));
+          return { ...prev, [currentSectorId]: stunned };
+        });
+        setAlertMessage(`Питомец отвлек часовых! Радиус обзора противников временно снижен.`);
+        addLogMessage(`[СПУТНИК] Мародёры отвлеклись на шум в кустах!`);
+        break;
+      case 'track_scent':
+        setSafeRouteActive(true);
+        setAlertMessage('Гончая взяла след! На сетке подсвечены безопасные тропы и схроны.');
+        addLogMessage(`[СПУТНИК] Байкал учуял запах пороха и тайников.`);
+        break;
+      case 'ram_door':
+      case 'ferret_dig':
+        setAlertMessage('Питомец помог с обходом препятствий. Проверки замков облегчены!');
+        break;
+      default:
+        setAlertMessage(`Команда ${commandNameRu || commandId} выполнена.`);
+    }
   };
 
-  // Complete POI
-  const handleCompletePOI = (poiId: string, itemsGained: { itemId: string; count: number }[], xpGained: number) => {
-    setPois((prev) => prev.map((p) => (p.id === poiId ? { ...p, completed: true } : p)));
-
-    // Grant items
-    itemsGained.forEach((loot) => {
-      addItemToInventory({ id: loot.itemId } as any, loot.count);
+  // Complete POI inspection and grant rewards
+  const handlePoiComplete = (poiId: string, rewards: { itemId: string; count: number }[], xp: number) => {
+    setSectorPois((prev) => {
+      const updated = currentPois.map((p) => (p.id === poiId ? { ...p, completed: true } : p));
+      return { ...prev, [currentSectorId]: updated };
     });
 
-    // Grant XP
-    if (xpGained > 0) {
-      addExperience(xpGained, 'Исследование Пустой деревни');
+    rewards.forEach((r) => {
+      const foundItem = ITEM_DATABASE.find((i) => i.id === r.itemId);
+      if (foundItem) {
+        addItemToInventory(foundItem, r.count);
+      }
+    });
+
+    if (xp > 0) {
+      addExperience(xp);
     }
 
-    addLogMessage(`Локация: Исследован объект [${poiId}], получено ${xpGained} XP.`, 'heal');
-  };
-
-  // Render tile visuals
-  const renderTileContent = (x: number, y: number, tile: TileType) => {
-    const isPlayer = playerPos.x === x && playerPos.y === y;
-    const isCompanion = companionPos.x === x && companionPos.y === y && selectedPet.id !== 'none' && !isPlayer;
-    const enemyAtTile = patrol.find((e) => e.x === x && e.y === y);
-    const poiAtTile = pois.find((p) => p.x === x && p.y === y);
-    const isExplored = exploredTiles[y][x];
-
-    // Distance to player
-    const distToPlayer = getDistance(playerPos, { x, y });
-    const isVisibleNow = scoutRevealedTurns > 0 || distToPlayer <= 3;
-    const isAdjacentWalkable = distToPlayer === 1 && isWalkable(x, y);
-
-    // Vision cone overlay
-    let inPatrolVision = false;
-    patrol.forEach((enemy) => {
-      if (enemy.facing === 'south' && y > enemy.y && y <= enemy.y + 2 && Math.abs(x - enemy.x) <= 1) inPatrolVision = true;
-      if (enemy.facing === 'north' && y < enemy.y && y >= enemy.y - 2 && Math.abs(x - enemy.x) <= 1) inPatrolVision = true;
-      if (enemy.facing === 'east' && x > enemy.x && x <= enemy.x + 2 && Math.abs(y - enemy.y) <= 1) inPatrolVision = true;
-      if (enemy.facing === 'west' && x < enemy.x && x >= enemy.x - 2 && Math.abs(y - enemy.y) <= 1) inPatrolVision = true;
-    });
-
-    // Color/texture according to tile
-    let bgClass = 'bg-[#1a1714]';
-    if (tile === 'grass') bgClass = 'bg-[#29331f] border-[#3f4f30]/40';
-    else if (tile === 'path') bgClass = 'bg-[#3b3429] border-[#52493a]/40';
-    else if (tile === 'wall') bgClass = 'bg-[#261f18] border-[#423427]';
-    else if (tile === 'forest') bgClass = 'bg-[#0f1f14] border-[#183321]';
-    else if (tile === 'fence') bgClass = 'bg-[#2a221b] border-[#544335]';
-    else if (tile === 'debris') bgClass = 'bg-[#2d2822] border-[#4a4238]';
-
-    return (
-      <div
-        key={`${x}-${y}`}
-        onClick={() => {
-          if (poiAtTile && distToPlayer <= 1) {
-            setActivePoi(poiAtTile);
-          } else {
-            handleTileClick(x, y);
-          }
-        }}
-        className={`relative w-12 h-12 md:w-14 md:h-14 border border-black/40 flex items-center justify-center transition-all cursor-pointer ${bgClass} ${
-          isAdjacentWalkable ? 'hover:ring-2 hover:ring-amber-400/80 hover:bg-amber-500/10' : ''
-        }`}
-        style={{
-          opacity: isVisibleNow ? 1 : isExplored ? 0.45 : 0.15,
-        }}
-      >
-        {/* Subtle grid pattern / textures */}
-        {tile === 'wall' && (
-          <div className="absolute inset-1 flex flex-col justify-between py-1 border border-[#524030] rounded bg-[#36291f]">
-            <div className="h-0.5 bg-[#1f1712]" />
-            <div className="h-0.5 bg-[#1f1712]" />
-            <div className="h-0.5 bg-[#1f1712]" />
-          </div>
-        )}
-
-        {tile === 'forest' && (
-          <div className="text-emerald-900/60 font-bold text-[18px] select-none">▲▲</div>
-        )}
-
-        {tile === 'fence' && (
-          <div className="w-full h-1 bg-[#854d0e]/60 border-t border-b border-[#451a03]" />
-        )}
-
-        {tile === 'grass' && (
-          <div className="absolute bottom-1 right-1 text-emerald-500/30 text-[10px]">░░</div>
-        )}
-
-        {/* Patrol Vision Warning Overlay */}
-        {inPatrolVision && isVisibleNow && (
-          <div className="absolute inset-0 bg-red-600/20 border border-red-500/40 pointer-events-none animate-pulse" />
-        )}
-
-        {/* Safe route hint */}
-        {safeRouteActive && x === 5 && (
-          <div className="absolute inset-0 border border-dashed border-cyan-400/50 bg-cyan-500/10 pointer-events-none" />
-        )}
-
-        {/* POI Marker */}
-        {poiAtTile && isExplored && !isPlayer && !enemyAtTile && (
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              if (distToPlayer <= 1) {
-                setActivePoi(poiAtTile);
-              } else {
-                setAlertMessage(`Слишком далеко для осмотра! Подойдите ближе к [${poiAtTile.nameRu}].`);
-              }
-            }}
-            className={`z-10 p-1 rounded-full border shadow-md transition-transform hover:scale-110 ${
-              poiAtTile.completed
-                ? 'bg-neutral-800 text-neutral-500 border-neutral-700'
-                : 'bg-amber-500 text-neutral-950 border-amber-300 animate-bounce'
-            }`}
-          >
-            {poiAtTile.iconName === 'home' && <Home className="w-3.5 h-3.5" />}
-            {poiAtTile.iconName === 'wrench' && <Wrench className="w-3.5 h-3.5" />}
-            {poiAtTile.iconName === 'radio' && <Radio className="w-3.5 h-3.5" />}
-            {poiAtTile.iconName === 'box' && <Package className="w-3.5 h-3.5" />}
-            {poiAtTile.iconName === 'footprints' && <Footprints className="w-3.5 h-3.5" />}
-            {poiAtTile.iconName === 'lock' && <Lock className="w-3.5 h-3.5" />}
-          </div>
-        )}
-
-        {/* Patrol Enemy Token */}
-        {enemyAtTile && isVisibleNow && (
-          <div className="z-20 flex flex-col items-center">
-            <div className="w-7 h-7 rounded-full bg-red-700 border-2 border-red-400 flex items-center justify-center text-white shadow-lg shadow-red-600/50">
-              <span className="text-[10px] font-bold">М</span>
-            </div>
-            <div className="text-[9px] text-red-300 font-bold bg-black/80 px-1 rounded -mt-1 border border-red-500/40">
-              Дозор
-            </div>
-          </div>
-        )}
-
-        {/* Player Sprite */}
-        {isPlayer && (
-          <div className="z-30 absolute -top-3">
-            <CharacterSprite character={character} direction={playerFacing} scale={0.85} isSelected={true} />
-          </div>
-        )}
-
-        {/* Companion Sprite */}
-        {isCompanion && (
-          <div className="z-25 absolute -top-1">
-            <CompanionSprite petId={selectedPet.id} scale={0.8} />
-          </div>
-        )}
-      </div>
-    );
+    addLogMessage(`Успешное взаимодействие с объектом! Получено +${xp} XP.`);
+    setActivePoi(null);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-3 font-mono space-y-4">
-      {/* Top Banner & Quick Controls */}
-      <div className="bg-neutral-900 border border-amber-500/40 rounded-xl p-4 shadow-lg flex flex-wrap items-center justify-between gap-4">
+    <div
+      className={`relative w-full max-w-7xl mx-auto p-4 md:p-6 space-y-6 ${
+        crtScanlines
+          ? 'after:pointer-events-none after:fixed after:inset-0 after:bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.18)_50%)] after:bg-[length:100%_4px] after:z-40'
+          : ''
+      }`}
+    >
+      {/* --- TOP TACTICAL CONTROL BAR --- */}
+      <div className="bg-gradient-to-r from-stone-900 via-stone-850 to-stone-900 border border-amber-600/40 rounded-xl p-4 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        {/* Sector Name & Atmosphere */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-            <Compass className="w-6 h-6" />
+          <div className="p-2.5 rounded-lg bg-amber-950/70 border border-amber-600/60 text-amber-400">
+            <Compass className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-amber-300 flex items-center gap-2">
-              <span>Тактическая карта: Пустая деревня</span>
-              <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                12 x 10 Сетка
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold font-mono text-amber-400 tracking-wider">
+                {sector.nameRu}
+              </h1>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-stone-800 border border-stone-700 text-stone-300">
+                {sector.dangerRating}
               </span>
-            </h2>
-            <p className="text-xs text-neutral-400">
-              Сектор Подмосковья • Пошаговое исследование руин • Патруль «Стервятников»
-            </p>
+            </div>
+            <p className="text-xs text-stone-400 font-mono line-clamp-1">{sector.subtitleRu}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* AP Counter */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-800 text-xs">
-            <Zap className="w-4 h-4 text-cyan-400" />
-            <span className="text-neutral-300">Очки действия:</span>
-            <span className="text-cyan-400 font-bold text-sm">
-              {currentAp} / {derivedStats?.maxAp || 10} AP
-            </span>
-          </div>
-
-          {/* End Turn button */}
+        {/* Global Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Radial Hub World Map */}
           <button
-            onClick={handleEndTurn}
-            className="px-3.5 py-1.5 rounded-lg bg-neutral-800 border border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold flex items-center gap-2 transition-all active:translate-y-0.5 shadow-sm"
+            onClick={() => setShowWorldMap(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-900 hover:bg-stone-800 border border-amber-600/50 text-amber-400 text-xs font-mono font-bold transition-all shadow-md active:scale-95"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span>Завершить ход</span>
+            <MapPin className="w-4 h-4 text-amber-400" />
+            КАРТА РЕГИОНА
           </button>
 
-          {/* Artbook / Sketch Gallery button */}
+          {/* Character Paperdoll */}
+          <button
+            onClick={() => setShowPaperdoll(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500 text-amber-300 text-xs font-mono font-bold transition-all shadow-md active:scale-95"
+          >
+            <Layers className="w-4 h-4 text-amber-400" />
+            КУКЛА ЭКИПИРОВКИ
+          </button>
+
+          {/* Sketch Gallery */}
           <button
             onClick={() => setShowSketchGallery(true)}
-            className="px-3.5 py-1.5 rounded-lg bg-amber-500 text-neutral-950 hover:bg-amber-400 text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-amber-500/20"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-900 hover:bg-stone-800 border border-stone-700 text-stone-300 text-xs font-mono font-bold transition-all active:scale-95"
           >
-            <Palette className="w-3.5 h-3.5" />
-            <span>Арт-бук & Скетчи</span>
+            <Palette className="w-4 h-4 text-amber-400" />
+            АРТ-СКЕТЧИ
+          </button>
+
+          {/* 3D Engine Toggle (ATOM RPG Style) */}
+          <button
+            onClick={() => setIs3DEngine(!is3DEngine)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-mono font-bold transition-all active:scale-95 ${
+              is3DEngine
+                ? 'bg-amber-600 hover:bg-amber-500 border-amber-400 text-stone-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-400'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            {is3DEngine ? 'АТОМ 3D ДВИЖОК ВКЛ' : '2Д СЕТКА'}
+          </button>
+
+          {/* Perspective View Mode Toggle */}
+          <button
+            onClick={() => setViewMode(viewMode === 'isometric' ? 'orthographic' : 'isometric')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-900 hover:bg-stone-800 border border-cyan-700/60 text-cyan-300 text-xs font-mono font-bold transition-all active:scale-95"
+          >
+            <Eye className="w-4 h-4 text-cyan-400" />
+            {viewMode === 'isometric' ? 'РЕЖИМ: ИЗОМЕТРИЯ' : 'РЕЖИМ: СЕТКА 2D'}
+          </button>
+
+          {/* CRT Monitor Effect Toggle */}
+          <button
+            onClick={() => setCrtScanlines(!crtScanlines)}
+            className={`p-2 rounded-lg border text-xs font-mono transition-all ${
+              crtScanlines
+                ? 'bg-amber-950/80 border-amber-500 text-amber-300'
+                : 'bg-stone-900 border-stone-800 text-stone-500'
+            }`}
+            title="Переключить кинескопный сканлайн CRT"
+          >
+            <Tv className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Alert / Notification strip */}
+      {/* --- AP STATUS, STANCE, AND TRANSITIONS BAR --- */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        {/* Tactical Status Cards */}
+        <div className="md:col-span-8 flex flex-wrap items-center gap-3 p-3.5 bg-stone-900/80 border border-amber-900/40 rounded-xl font-mono text-xs">
+          {/* Action Points */}
+          <div className="flex items-center gap-2 bg-stone-950 px-3 py-1.5 rounded-lg border border-amber-600/30">
+            <Zap className="w-4 h-4 text-cyan-400" />
+            <span className="text-stone-400">ОЧКИ ДЕЙСТВИЯ:</span>
+            <span className="text-cyan-400 font-bold text-sm">
+              {currentAp} / {derivedStats?.maxAp || 10}
+            </span>
+          </div>
+
+          {/* Stance Selector */}
+          <div className="flex items-center gap-1 bg-stone-950 p-1 rounded-lg border border-stone-800">
+            <button
+              onClick={() => setStance('sneak')}
+              className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                stance === 'sneak'
+                  ? 'bg-emerald-900/80 border border-emerald-500 text-emerald-300'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              Скрытность (Стелс)
+            </button>
+            <button
+              onClick={() => setStance('normal')}
+              className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                stance === 'normal'
+                  ? 'bg-amber-950/80 border border-amber-500 text-amber-300'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              Шаг
+            </button>
+            <button
+              onClick={() => setStance('sprint')}
+              className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                stance === 'sprint'
+                  ? 'bg-red-950/80 border border-red-500 text-red-300'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              Бег
+            </button>
+          </div>
+
+          {/* Flashlight Button */}
+          <button
+            onClick={() => setFlashlightOn(!flashlightOn)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+              flashlightOn
+                ? 'bg-amber-950/60 border-amber-500 text-amber-300'
+                : 'bg-stone-950 border-stone-800 text-stone-500'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            Фонарь {flashlightOn ? 'ВКЛ (+2 к Обзору)' : 'ВЫКЛ'}
+          </button>
+
+          {/* End Turn */}
+          <button
+            onClick={handleEndTurn}
+            className="ml-auto flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold font-mono transition-all shadow active:scale-95"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            КОНЕЦ ХОДА
+          </button>
+        </div>
+
+        {/* Sector Transitions Quick Navigator */}
+        <div className="md:col-span-4 p-3.5 bg-stone-900/80 border border-amber-900/40 rounded-xl flex items-center justify-between font-mono text-xs">
+          <div>
+            <div className="text-[11px] text-stone-400 uppercase font-bold">Выходы из сектора:</div>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {sector.transitions.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => handleSwitchSector(t.targetSectorId, t.targetSpawnX, t.targetSpawnY)}
+                  className="px-2 py-0.5 rounded bg-stone-950 hover:bg-amber-950 border border-stone-700 hover:border-amber-500 text-amber-400 text-[11px] font-bold"
+                >
+                  {t.directionRu}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="text-right text-[11px] text-stone-500">
+            {sector.gridWidth}x{sector.gridHeight} клеток
+          </div>
+        </div>
+      </div>
+
+      {/* --- NOTIFICATION / ALERT BANNER --- */}
       {alertMessage && (
-        <div className="p-2.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-300 text-xs flex items-center justify-between">
+        <div className="p-3 rounded-lg bg-amber-950/60 border border-amber-500/80 text-amber-300 font-mono text-xs flex items-center justify-between animate-fade-in">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
             <span>{alertMessage}</span>
           </div>
-          <button
-            onClick={() => setAlertMessage(null)}
-            className="text-neutral-400 hover:text-amber-200 text-xs px-2"
-          >
-            ✕
+          <button onClick={() => setAlertMessage(null)} className="text-stone-400 hover:text-stone-200">
+            ×
           </button>
         </div>
       )}
 
-      {/* Main Tactical Grid View + Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
-        {/* Left: Tactical Grid (Takes 3 columns on large screens) */}
-        <div className="lg:col-span-3 bg-neutral-950 border border-neutral-800 rounded-xl p-4 shadow-xl flex flex-col items-center overflow-x-auto">
-          {/* Tactical Header bar */}
-          <div className="w-full flex items-center justify-between border-b border-neutral-800 pb-2 mb-3 text-xs text-neutral-400">
-            <div className="flex items-center gap-4">
-              <span>
-                Координаты: <strong className="text-amber-400">[{playerPos.x}, {playerPos.y}]</strong>
-              </span>
-              <span>
-                Ландшафт: <strong className="text-neutral-200">{VILLAGE_TERRAIN_MAP[playerPos.y][playerPos.x]}</strong>
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-              <Eye className="w-3.5 h-3.5 text-neutral-400" />
-              <span>Туман войны активен (Линия взгляда)</span>
-            </div>
-          </div>
+      {/* --- MAIN TACTICAL VIEWPORT & COMPANION PANEL --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* CENTER TACTICAL CANVAS (8 COLS) */}
+        <div className="lg:col-span-8 flex flex-col items-center justify-center">
+          {is3DEngine ? (
+            <ThreeIsometricViewport
+              terrain={currentTerrain}
+              gridWidth={sector.gridWidth}
+              gridHeight={sector.gridHeight}
+              playerPos={playerPos}
+              playerFacing={playerFacing}
+              companionPos={companionPos}
+              selectedPetId={character.petId || 'hound'}
+              pois={currentPois}
+              enemies={currentEnemies}
+              revealedTiles={explored}
+              hoveredTile={hoveredTile}
+              onTileClick={handleTileClick}
+              onTileHover={(x: number | null, y: number | null) => (x === null || y === null ? setHoveredTile(null) : setHoveredTile({ x, y }))}
+              character={character}
+              flashlightOn={flashlightOn}
+            />
+          ) : (
+            <IsometricGridRenderer
+              terrain={currentTerrain}
+              gridWidth={sector.gridWidth}
+              gridHeight={sector.gridHeight}
+              playerPos={playerPos}
+              playerFacing={playerFacing}
+              companionPos={companionPos}
+              selectedPetId={character.petId}
+              pois={currentPois}
+              enemies={currentEnemies}
+              revealedTiles={explored}
+              viewMode={viewMode}
+              hoveredTile={hoveredTile}
+              onTileClick={handleTileClick}
+              onTileHover={(x, y) => (y === null ? setHoveredTile(null) : setHoveredTile({ x, y }))}
+              character={character}
+              flashlightOn={flashlightOn}
+            />
+          )}
 
-          {/* Grid Canvas */}
-          <div
-            className="inline-grid gap-[1px] p-2 bg-neutral-900/80 rounded-lg border border-neutral-800 shadow-2xl"
-            style={{
-              gridTemplateColumns: `repeat(${MAP_GRID_WIDTH}, minmax(0, 1fr))`,
-            }}
-          >
-            {VILLAGE_TERRAIN_MAP.map((row, y) =>
-              row.map((tile, x) => renderTileContent(x, y, tile))
-            )}
-          </div>
-
-          {/* Grid Legend */}
-          <div className="w-full flex flex-wrap items-center justify-between gap-3 pt-3 mt-3 border-t border-neutral-800/80 text-[11px] text-neutral-400">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-sm bg-[#36291f] border border-[#524030]" /> Сруб (стена)
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-sm bg-[#29331f] border border-[#3f4f30]" /> Высокая трава (стелс)
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-sm bg-[#3b3429]" /> Тропа
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-sm bg-red-600/30 border border-red-500/50" /> Сектор мародёра
-              </span>
-            </div>
-            <span className="text-amber-500/80">Клик по соседней клетке — перемещение (1 AP)</span>
+          <div className="w-full flex items-center justify-between text-[11px] text-stone-500 font-mono mt-2 px-2">
+            <span>Кликните по клетке для перемещения или подхода к объекту осмотра</span>
+            <span>Позиция: X:{playerPos.x}, Y:{playerPos.y}</span>
           </div>
         </div>
 
-        {/* Right Sidebar: Companion & Objectives Panel */}
-        <div className="space-y-4">
+        {/* RIGHT SIDEBAR: COMPANION & SECTOR INFO (4 COLS) */}
+        <div className="lg:col-span-4 space-y-4">
           {/* Companion Command Panel */}
           <CompanionCommandPanel
             pet={selectedPet}
-            onExecuteCommand={handleExecuteCompanionCommand}
-            activeBuff={activeCompanionBuff}
+            onExecuteCommand={handleCompanionCommand}
             scoutRevealedTurns={scoutRevealedTurns}
           />
 
-          {/* Objectives & POI checklist */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5 text-xs space-y-3">
-            <h4 className="font-bold text-amber-300 flex items-center gap-2 border-b border-neutral-800 pb-2">
-              <CheckCircle className="w-4 h-4 text-amber-400" />
-              <span>Цели пролога в деревне</span>
-            </h4>
+          {/* Sector Lore & Active POIs Overview */}
+          <div className="p-4 rounded-xl bg-stone-900/90 border border-stone-800 font-mono space-y-3">
+            <div className="text-xs font-bold text-amber-400 uppercase tracking-widest pb-1 border-b border-stone-800 flex items-center justify-between">
+              <span>Объекты сектора ({currentPois.filter((p) => !p.completed).length})</span>
+              <span className="text-[10px] text-stone-500">Инспекция</span>
+            </div>
 
-            <div className="space-y-2 text-[11px]">
-              {pois.map((poi) => (
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {currentPois.map((poi) => (
                 <div
                   key={poi.id}
                   onClick={() => {
-                    if (getDistance(playerPos, { x: poi.x, y: poi.y }) <= 1) {
+                    if (!poi.completed) {
+                      // Move player adjacent to POI
+                      handleTileClick(
+                        Math.max(0, Math.min(sector.gridWidth - 1, poi.x)),
+                        Math.max(0, Math.min(sector.gridHeight - 1, poi.y + 1))
+                      );
                       setActivePoi(poi);
-                    } else {
-                      setAlertMessage(`Подойдите к объекту [${poi.nameRu}], чтобы начать взаимодействие.`);
                     }
                   }}
-                  className={`p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${
+                  className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex items-start justify-between ${
                     poi.completed
-                      ? 'bg-neutral-950/60 border-neutral-800 text-neutral-500 line-through'
-                      : 'bg-neutral-950 border-amber-500/20 text-neutral-300 hover:border-amber-400/50'
+                      ? 'bg-stone-950/40 border-stone-900 text-stone-600'
+                      : 'bg-stone-950/80 border-stone-800 hover:border-amber-600/70 text-stone-300'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        poi.completed ? 'bg-neutral-600' : 'bg-amber-400 animate-pulse'
-                      }`}
-                    />
-                    <span>{poi.nameRu}</span>
+                  <div>
+                    <div className="font-bold flex items-center gap-1.5">
+                      {poi.nameRu}
+                      {poi.completed && <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />}
+                    </div>
+                    <div className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
+                      {poi.descriptionRu}
+                    </div>
                   </div>
-                  <span className="text-[10px] text-neutral-400 font-mono">
-                    [{poi.x},{poi.y}]
+                  <span className="text-[10px] text-amber-500 shrink-0 ml-2">
+                    {poi.completed ? 'Изучено' : `DC ${poi.difficulty || 10}`}
                   </span>
                 </div>
               ))}
-            </div>
-
-            <div className="p-2.5 rounded bg-neutral-950/80 border border-neutral-800/80 text-[11px] text-neutral-400 space-y-1">
-              <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
-                <Info className="w-3.5 h-3.5" />
-                <span>Совет следопыта:</span>
-              </div>
-              <p>
-                Не вступайте в лобовой бой со всеми мародёрами сразу. Обойдите патруль по кустам слева или отвлеките спутником, чтобы собрать стартовое снаряжение и выйти на лесную тропу.
-              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* POI Interaction Modal */}
+      {/* --- MODALS --- */}
+      {/* 1. POI Inspection Modal */}
       {activePoi && (
         <InteractionDialogModal
           poi={activePoi}
           character={character}
           effectiveSpecial={effectiveSpecial}
-          companionId={selectedPet.id}
+          companionId={character.petId}
           onClose={() => setActivePoi(null)}
-          onCompletePOI={handleCompletePOI}
+          onCompletePOI={(poiId: string, itemsGained: { itemId: string; count: number }[], xpGained: number) =>
+            handlePoiComplete(poiId, itemsGained, xpGained)
+          }
           onStartCombatWithPatrol={() => {
-            setActivePoi(null);
-            startCombatEncounter();
+            const marauderEnemy = ENEMY_DATABASE.find((e) => e.id === 'raider_psycho') || ENEMY_DATABASE[0];
+            if (marauderEnemy) {
+              startCombatEncounter(marauderEnemy);
+            }
           }}
         />
       )}
 
-      {/* Concept Sketch & Model Gallery Modal */}
+      {/* 2. Character Paperdoll Screen */}
+      {showPaperdoll && (
+        <CharacterPaperdoll
+          character={character}
+          derivedStats={derivedStats}
+          inventory={inventory}
+          onEquipItem={(itemId) => {
+            const item = inventory.find((inv) => inv.item.id === itemId)?.item;
+            if (item?.type === 'weapon') equipWeapon(itemId);
+            if (item?.type === 'armor') equipArmor(itemId);
+          }}
+          onUnequipItem={(slot) => {
+            if (slot === 'weapon') equipWeapon('');
+            if (slot === 'armor') equipArmor('');
+          }}
+          onClose={() => setShowPaperdoll(false)}
+        />
+      )}
+
+      {/* 3. Radial World Map Modal */}
+      {showWorldMap && (
+        <RadialWorldMapModal
+          currentSectorId={currentSectorId}
+          onSelectSector={handleSwitchSector}
+          onClose={() => setShowWorldMap(false)}
+        />
+      )}
+
+      {/* 4. Sketch Gallery Modal */}
       {showSketchGallery && (
-        <SketchGalleryModal character={character} onClose={() => setShowSketchGallery(false)} />
+        <SketchGalleryModal
+          character={character}
+          onClose={() => setShowSketchGallery(false)}
+        />
       )}
     </div>
   );

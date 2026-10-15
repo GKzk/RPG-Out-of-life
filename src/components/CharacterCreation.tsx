@@ -62,7 +62,11 @@ const FEAT_ICON: Record<string, React.ReactNode> = {
   sexuality: <Sparkles className="w-4 h-4" />,
 };
 
-export const CharacterCreation: React.FC = () => {
+export interface CharacterCreationProps {
+  onDone?: () => void;
+}
+
+export const CharacterCreation: React.FC<CharacterCreationProps> = ({ onDone }) => {
   const { createCharacter, loadPresetCharacter } = useGame();
 
   const [name, setName] = useState('Алекс');
@@ -188,6 +192,7 @@ export const CharacterCreation: React.FC = () => {
     const preset = ARCHETYPE_PRESETS.find((item) => item.id === presetId);
     if (!preset) return;
     loadPresetCharacter(presetId, preset.titleRu);
+    if (onDone) onDone();
   };
 
   const updateStat = (attr: SpecialAttribute, delta: number) => {
@@ -240,6 +245,7 @@ export const CharacterCreation: React.FC = () => {
       background.id,
       skillInvestments
     );
+    if (onDone) onDone();
   };
 
   const currentAvatarDef = AVATAR_OPTIONS.find((a) => a.id === avatarId) || AVATAR_OPTIONS[0];

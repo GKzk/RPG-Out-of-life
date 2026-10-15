@@ -202,7 +202,54 @@ export const SketchGalleryModal: React.FC<SketchGalleryModalProps> = ({ characte
                 </div>
                 <h5 className="font-bold text-amber-300 text-xs">Охотничий нож</h5>
                 <p className="text-[11px] text-neutral-400 leading-tight">
-                  Кованый клинок с деревянной ручкой. Служит как оружием, так и инструментом срезания веревок и вскрытия тайников.
+                  Кованый клинок с деревянной ручкой. Служит как оружием, так и инструментом для срезания веревок и вскрытия тайников.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2">
+                <div className="h-28 flex items-center justify-center bg-neutral-900/50 rounded-lg border border-neutral-800/80">
+                  <svg viewBox="0 0 100 60" className="w-24 h-20">
+                    {/* SKS Carbine sketch */}
+                    <rect x="10" y="27" width="80" height="4" fill="#334155" stroke="#0f172a" strokeWidth="1" />
+                    <path d="M 10,27 L 30,27 L 26,38 L 8,36 Z" fill="#78350f" stroke="#451a03" strokeWidth="1" />
+                    <rect x="35" y="31" width="8" height="7" rx="1" fill="#1e293b" />
+                    <circle cx="85" cy="27" r="2" fill="#f59e0b" />
+                  </svg>
+                </div>
+                <h5 className="font-bold text-amber-300 text-xs">Карабин СКС 7.62 мм</h5>
+                <p className="text-[11px] text-neutral-400 leading-tight">
+                  Самозарядный нарезной карабин для точной стрельбы по часовым мачты на дистанциях до 200 метров.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2">
+                <div className="h-28 flex items-center justify-center bg-neutral-900/50 rounded-lg border border-neutral-800/80">
+                  <svg viewBox="0 0 100 60" className="w-24 h-20">
+                    {/* 6B2 Vest */}
+                    <path d="M 28,15 L 72,15 L 68,48 L 32,48 Z" fill="#2d3748" stroke="#f59e0b" strokeWidth="1.2" />
+                    <rect x="36" y="28" width="12" height="12" rx="1" fill="#1a202c" stroke="#4a5568" />
+                    <rect x="52" y="28" width="12" height="12" rx="1" fill="#1a202c" stroke="#4a5568" />
+                  </svg>
+                </div>
+                <h5 className="font-bold text-amber-300 text-xs">Бронежилет 6Б2</h5>
+                <p className="text-[11px] text-neutral-400 leading-tight">
+                  Титановые пластины в ткани арамида. Защищает от осколков гранат и картечи в ближних стычках.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2">
+                <div className="h-28 flex items-center justify-center bg-neutral-900/50 rounded-lg border border-neutral-800/80">
+                  <svg viewBox="0 0 100 60" className="w-24 h-20">
+                    {/* Gas mask GP-5 sketch */}
+                    <ellipse cx="50" cy="30" rx="18" ry="22" fill="#78716c" stroke="#f59e0b" strokeWidth="1.2" />
+                    <circle cx="43" cy="25" r="5" fill="#38bdf8" stroke="#1e293b" strokeWidth="1" />
+                    <circle cx="57" cy="25" r="5" fill="#38bdf8" stroke="#1e293b" strokeWidth="1" />
+                    <rect x="44" y="38" width="12" height="14" rx="3" fill="#15803d" stroke="#14532d" />
+                  </svg>
+                </div>
+                <h5 className="font-bold text-amber-300 text-xs">Противогаз ГП-5</h5>
+                <p className="text-[11px] text-neutral-400 leading-tight">
+                  Классическая шлем-маска с зелёным фильтром. Спасает от спор мутировавших сосен и радиационной пыли Бункера.
                 </p>
               </div>
 
@@ -218,7 +265,7 @@ export const SketchGalleryModal: React.FC<SketchGalleryModalProps> = ({ characte
                 </div>
                 <h5 className="font-bold text-amber-300 text-xs">Динамо-фонарь "Жучок"</h5>
                 <p className="text-[11px] text-neutral-400 leading-tight">
-                  Ручной генератор света, незаменимый для ночного исследования брошенных срубов деревни.
+                  Ручной генератор света, незаменимый для ночного исследования брошенных срубов деревни и штолен.
                 </p>
               </div>
 
@@ -234,7 +281,7 @@ export const SketchGalleryModal: React.FC<SketchGalleryModalProps> = ({ characte
                 </div>
                 <h5 className="font-bold text-amber-300 text-xs">Карта Старосты на брезенте</h5>
                 <p className="text-[11px] text-neutral-400 leading-tight">
-                  Старинный план лесных дорог Подмосковья с пометками брошенных деревень и схронов.
+                  Старинный план лесных дорог Подмосковья с пометками брошенных деревень, радиомачты и входа в «Объект-17».
                 </p>
               </div>
             </div>
@@ -242,24 +289,33 @@ export const SketchGalleryModal: React.FC<SketchGalleryModalProps> = ({ characte
 
           {/* CATEGORY 4: LOCATIONS */}
           {activeCategory === 'locations' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 text-xs space-y-3 leading-relaxed">
-                <h4 className="text-sm font-bold text-amber-400">Сеттинг: Пустая деревня в Подмосковье (~70 лет после коллапса)</h4>
-                <p className="text-neutral-300">
-                  Окруженная глухим смешанным бором деревня представляет собой образец реконструктивистского выживания.
-                  Деревянные срубы укреплены кузовными листами, на крыше сарая смонтирована радиомачта на аккумуляторах,
-                  а в мастерской кузнеца установлен перебранный дизельный генератор.
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 text-xs space-y-2">
+                <div className="text-amber-400 font-bold text-sm">Сектор 0: Опустевшая деревня (Хаб)</div>
+                <p className="text-neutral-400 leading-relaxed">
+                  Центральный опорный пункт. Деревянные срубы, укреплённые листами жести, действующий колодец и перебранный дизельный генератор. Безопасная гавань для сна и ремонта.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  <div className="p-3 rounded bg-neutral-900 border border-neutral-800">
-                    <span className="text-amber-400 font-semibold block mb-1">Сетка тактики (12x10):</span>
-                    Позволяет пошагово перемещаться, использовать укрытия из поваленных сосен и разрушенных заборов.
-                  </div>
-                  <div className="p-3 rounded bg-neutral-900 border border-neutral-800">
-                    <span className="text-amber-400 font-semibold block mb-1">Поле обзора (Fog of War):</span>
-                    Исследование с фонарем или разведка ворона Каркуна открывают скрытые углы заброшенных домов.
-                  </div>
-                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 text-xs space-y-2">
+                <div className="text-emerald-400 font-bold text-sm">Сектор 1: Мёртвый бор (16x16)</div>
+                <p className="text-neutral-400 leading-relaxed">
+                  Дремучий хвойный массив. Браконьерские капканы, упавший дрон МЧС, заросли целебных трав и логово одичавшей стаи волкодавов.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 text-xs space-y-2">
+                <div className="text-cyan-400 font-bold text-sm">Сектор 2: Радиомачта «Маяк-4» (14x18)</div>
+                <p className="text-neutral-400 leading-relaxed">
+                  Скалистая высота с 50-метровой вышкой связи. Занята вооруженными мародёрами «Вороны». В аппаратном зале спрятан радиомодуль дальней связи.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 text-xs space-y-2">
+                <div className="text-red-400 font-bold text-sm">Сектор 3: Бункер ГО «Объект-17» (18x18)</div>
+                <p className="text-neutral-400 leading-relaxed">
+                  Подземный комплекс Гражданской Обороны под многотонным гермошлюзом. Радиационные карманы, архивные серверы и ключ к раскрытию катастрофы пролога.
+                </p>
               </div>
             </div>
           )}

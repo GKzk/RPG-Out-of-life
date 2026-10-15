@@ -4,12 +4,12 @@ import { Terminal, ChevronDown, ChevronUp, ScrollText } from 'lucide-react';
 
 export const CombatLogConsole: React.FC = () => {
   const { combatLog } = useGame();
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   if (combatLog.length === 0) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 max-w-6xl mx-auto px-4 pointer-events-none">
+    <div className="fixed bottom-14 md:bottom-16 left-0 right-0 z-30 max-w-6xl mx-auto px-4 pointer-events-none">
       <div className="bg-neutral-950/95 border-t border-x border-amber-500/40 rounded-t-lg shadow-2xl shadow-black font-mono text-amber-300 pointer-events-auto backdrop-blur-md">
         {/* Toggle Bar */}
         <div

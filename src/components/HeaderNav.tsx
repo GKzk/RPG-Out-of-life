@@ -161,9 +161,9 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({ activeTab, setActiveTab })
           }`}
         >
           <MapPin className="w-4 h-4 text-amber-400" />
-          <span>Тактика: Деревня</span>
+          <span>Тактика: Сектора</span>
           <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-300 text-[10px] rounded border border-amber-500/30">
-            2D Сетка
+            CRPG Изометрия
           </span>
         </button>
 

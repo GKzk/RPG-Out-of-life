@@ -18,6 +18,7 @@ import {
   Sparkles,
   Zap,
   ArrowRight,
+  MessageSquare,
 } from 'lucide-react';
 
 interface InteractionDialogModalProps {
@@ -28,6 +29,7 @@ interface InteractionDialogModalProps {
   onClose: () => void;
   onCompletePOI: (poiId: string, itemsGained: { itemId: string; count: number }[], xpGained: number) => void;
   onStartCombatWithPatrol?: () => void;
+  onOpenDialogue?: (dialogueId: 'elder' | 'raider') => void;
 }
 
 export const InteractionDialogModal: React.FC<InteractionDialogModalProps> = ({
@@ -38,6 +40,7 @@ export const InteractionDialogModal: React.FC<InteractionDialogModalProps> = ({
   onClose,
   onCompletePOI,
   onStartCombatWithPatrol,
+  onOpenDialogue,
 }) => {
   const [checkResult, setCheckResult] = useState<SkillCheckResult | null>(null);
   const [d20Roll, setD20Roll] = useState<number | null>(null);
@@ -285,7 +288,34 @@ export const InteractionDialogModal: React.FC<InteractionDialogModalProps> = ({
                   </button>
                 )}
 
-                {poi.id === 'scavenger_tracks' && (
+                {/* Fallout-Style Dialogue Triggers */}
+                {poi.id === 'elders_cabin' && onOpenDialogue && (
+                  <button
+                    onClick={() => {
+                      onOpenDialogue('elder');
+                      onClose();
+                    }}
+                    className="py-2.5 px-4 rounded-lg bg-amber-950/80 border border-amber-500 text-amber-300 font-bold text-xs hover:bg-amber-900/90 transition-colors flex items-center gap-2"
+                  >
+                    <MessageSquare className="w-4 h-4 text-amber-400" />
+                    <span>Поговорить со Старостой Матвеем</span>
+                  </button>
+                )}
+
+                {(poi.id === 'raider_tracks' || poi.id === 'scavenger_tracks') && onOpenDialogue && (
+                  <button
+                    onClick={() => {
+                      onOpenDialogue('raider');
+                      onClose();
+                    }}
+                    className="py-2.5 px-4 rounded-lg bg-red-950/80 border border-red-500 text-red-300 font-bold text-xs hover:bg-red-900/90 transition-colors flex items-center gap-2"
+                  >
+                    <MessageSquare className="w-4 h-4 text-red-400" />
+                    <span>Переговоры с Часовым «Воронов»</span>
+                  </button>
+                )}
+
+                {(poi.id === 'scavenger_tracks' || poi.id === 'raider_tracks') && (
                   <button
                     onClick={() => {
                       if (onStartCombatWithPatrol) {
