@@ -336,7 +336,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
           material.clone(),
           new THREE.Vector3(pos.x, type === 'wall' || type === 'bunker_gate' ? tileHeight / 2 - 0.03 : -0.08, pos.z),
         ) as THREE.Mesh;
-        tile.userData = { gridX: x, gridY: y };
+        tile.userData = { gridX: x, gridY: y, baseColor: (tile.material as THREE.MeshStandardMaterial).color.clone() };
         allTiles[y][x] = tile;
 
         if (type === 'forest') {
@@ -417,6 +417,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       addMesh(marker, new THREE.ConeGeometry(0.18, 0.42, 5), enemyMat, new THREE.Vector3(0, 0.25, 0));
       const p = gridToWorld(enemy.x, enemy.y, gridWidth, gridHeight);
       marker.position.set(p.x, 0, p.z);
+      marker.userData = { gridX: enemy.x, gridY: enemy.y };
       scene.add(marker);
       enemyMarkers.push(marker);
     });
@@ -491,8 +492,17 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
         positions.needsUpdate = true;
       }
       if (meshesRef.current.player) {
-        flashlight.position.set(meshesRef.current.player.position.x, 1.85, meshesRef.current.player.position.z + 0.18);
-        flashlight.target.position.set(meshesRef.current.player.position.x, 0.1, meshesRef.current.player.position.z + 2.2);
+        const facingVectors: Record<SpriteDirection, [number, number]> = {
+          south: [0, 1], north: [0, -1], east: [1, 0], west: [-1, 0],
+          se: [0.707, 0.707], sw: [-0.707, 0.707], ne: [0.707, -0.707], nw: [-0.707, -0.707],
+        };
+        const [faceX, faceZ] = facingVectors[playerFacingRef.current] ?? [0, 1];
+        flashlight.position.set(meshesRef.current.player.position.x, 1.85, meshesRef.current.player.position.z);
+        flashlight.target.position.set(
+          meshesRef.current.player.position.x + faceX * 2.2,
+          0.1,
+          meshesRef.current.player.position.z + faceZ * 2.2,
+        );
         meshesRef.current.player.position.y = Math.sin(time * 2.3) * 0.012;
         const facingAngles: Record<SpriteDirection, number> = {
           south: 0, north: Math.PI, east: Math.PI / 2, west: -Math.PI / 2,
@@ -570,13 +580,25 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     meshesRef.current.tiles.forEach((row, y) => row.forEach((tile, x) => {
       const isRevealed = revealedTiles[y]?.[x] ?? true;
       const material = tile.material as THREE.MeshStandardMaterial;
-      material.transparent = !isRevealed;
-      material.opacity = isRevealed ? 1 : 0.18;
+      const baseColor = tile.userData.baseColor as THREE.Color | undefined;
+      if (baseColor) material.color.copy(baseColor);
+      if (!isRevealed) material.color.multiplyScalar(0.22);
+      // Keep fogged cells opaque: opacity alone was ignored when transparent=false,
+      // and transparent tiles caused depth-sorting artefacts in the tactical grid.
+      material.transparent = false;
+      material.opacity = 1;
+      material.depthWrite = true;
     }));
     meshesRef.current.poiMarkers.forEach((marker) => {
       const data = marker.userData as { poiId?: string };
       const poi = pois.find((item) => item.id === data.poiId);
       marker.visible = Boolean(poi && (revealedTiles[poi.y]?.[poi.x] ?? true));
+    });
+    meshesRef.current.enemyMarkers.forEach((marker) => {
+      const data = marker.userData as { gridX?: number; gridY?: number };
+      marker.visible = data.gridX !== undefined && data.gridY !== undefined
+        ? (revealedTiles[data.gridY]?.[data.gridX] ?? true)
+        : true;
     });
   }, [revealedTiles, pois]);
 
