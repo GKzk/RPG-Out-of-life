@@ -221,6 +221,8 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const onTileClickRef = useRef(onTileClick);
+  const onTileHoverRef = useRef(onTileHover);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const reqIdRef = useRef<number>(0);
   const meshesRef = useRef<SceneMeshes>({
@@ -232,6 +234,9 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     poiMarkers: [],
     enemyMarkers: [],
   });
+
+  useEffect(() => { onTileClickRef.current = onTileClick; }, [onTileClick]);
+  useEffect(() => { onTileHoverRef.current = onTileHover; }, [onTileHover]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -271,6 +276,11 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     sun.shadow.camera.bottom = -gridHeight;
     sun.shadow.bias = -0.00025;
     scene.add(sun);
+    const flashlight = new THREE.SpotLight(0xffe0b0, flashlightOn ? 3.2 : 0, flashlightOn ? 9 : 0, Math.PI / 5, 0.55, 1.4);
+    flashlight.castShadow = flashlightOn;
+    flashlight.position.set(0, 2.2, 0);
+    scene.add(flashlight);
+    scene.add(flashlight.target);
 
     const ground = addMesh(
       scene,
@@ -457,7 +467,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
     };
     const handleClick = () => {
       const tile = getTileAtPointer();
-      if (tile) onTileClick(tile.x, tile.y);
+      if (tile) onTileClickRef.current(tile.x, tile.y);
     };
     renderer.domElement.addEventListener('pointermove', handlePointerMove);
     renderer.domElement.addEventListener('click', handleClick);
@@ -477,6 +487,8 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
         positions.needsUpdate = true;
       }
       if (meshesRef.current.player) {
+        flashlight.position.set(meshesRef.current.player.position.x, 1.85, meshesRef.current.player.position.z + 0.18);
+        flashlight.target.position.set(meshesRef.current.player.position.x, 0.1, meshesRef.current.player.position.z + 2.2);
         meshesRef.current.player.position.y = Math.sin(time * 2.3) * 0.012;
         const facingAngles: Record<SpriteDirection, number> = {
           south: 0, north: Math.PI, east: Math.PI / 2, west: -Math.PI / 2,
@@ -533,7 +545,7 @@ export const ThreeIsometricViewport: React.FC<ThreeIsometricViewportProps> = ({
       cameraRef.current = null;
       meshesRef.current = { tiles: [], player: null, companion: null, particles: null, hover: null, poiMarkers: [], enemyMarkers: [] };
     };
-  }, [terrain, gridWidth, gridHeight, character, selectedPetId, pois, enemies, flashlightOn, onTileClick, onTileHover]);
+  }, [terrain, gridWidth, gridHeight, character.gender, character.equippedArmorId, character.equippedWeaponId, selectedPetId, flashlightOn, pois, enemies]);
 
   useEffect(() => {
     const player = meshesRef.current.player;
