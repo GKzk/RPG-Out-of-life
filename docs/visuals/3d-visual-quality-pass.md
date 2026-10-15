@@ -14,6 +14,9 @@ Improve the existing Three.js isometric sector without changing the RPG rules or
 - Added a restrained flashlight, ambient dust, orthographic framing, resize observation, and disposal of scene geometry/materials on unmount.
 - Fixed fog-of-war tile shading so unrevealed tiles are consistently darkened without relying on ineffective opacity settings; terrain decorations, POIs, and enemy markers now follow explored-cell visibility.
 - Directed the flashlight according to the survivor's current facing rather than always illuminating the same map direction.
+- Added smooth visual interpolation for player and companion movement while leaving the logical tile position and turn-based movement rules unchanged.
+- Kept player/companion coordinates synchronized when the Three.js scene is rebuilt after sector, equipment, pet, or flashlight changes.
+- Cleared tile hover state when the pointer leaves the viewport.
 - Added a GitHub Actions validation workflow for typecheck, tests, and production build.
 - Changed the viewport label to project-neutral Russian wording instead of presenting the prototype as an ATOM RPG engine.
 
@@ -28,9 +31,10 @@ Improve the existing Three.js isometric sector without changing the RPG rules or
 
 Run from the project root:
 
-1. `npm run lint` (TypeScript typecheck)
-2. `npm test`
-3. `npm run build`
+1. `npm ci` (clean dependency installation)
+2. `npm run lint` (TypeScript typecheck)
+3. `npm test`
+4. `npm run build`
 
 A GitHub Actions workflow now runs these checks on pushes to `main`/`feat/**`, pull requests targeting `main`, and manual dispatch. A successful result must be observed on the PR before treating this change as verified.
 
