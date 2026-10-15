@@ -12,7 +12,7 @@ Improve the existing Three.js isometric sector without changing the RPG rules or
 - Added low-poly trees, grass tufts, rubble, exposed rebar, broken wooden beams, and simple ruined-hut silhouettes.
 - Added visible POI/enemy markers and a hovered-cell highlight.
 - Added a restrained flashlight, ambient dust, orthographic framing, resize observation, and disposal of scene geometry/materials on unmount.
-- Fixed fog-of-war tile shading so unrevealed tiles are consistently darkened without relying on ineffective opacity settings; enemy markers now follow tile visibility.
+- Fixed fog-of-war tile shading so unrevealed tiles are consistently darkened without relying on ineffective opacity settings; terrain decorations, POIs, and enemy markers now follow explored-cell visibility.
 - Directed the flashlight according to the survivor's current facing rather than always illuminating the same map direction.
 - Added a GitHub Actions validation workflow for typecheck, tests, and production build.
 - Changed the viewport label to project-neutral Russian wording instead of presenting the prototype as an ATOM RPG engine.
@@ -44,7 +44,7 @@ Then manually inspect:
 - Equip/unequip weapons and armor and verify the character appearance updates.
 - Toggle the flashlight and inspect visibility.
 - Resize the viewport and open/close the map repeatedly; check for blank canvases, console errors, or progressive slowdown.
-- Verify fog-of-war affects individual tiles rather than unintentionally fading every tile sharing a material.
+- Verify fog-of-war hides terrain decorations, POIs, and enemy markers outside explored cells, and reveals them again when cells are explored.
 
 ## Next production step
 
